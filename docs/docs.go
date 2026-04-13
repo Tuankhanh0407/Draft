@@ -1441,6 +1441,38 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/ws/v1/exams/{id}/live": {
+            "get": {
+                "description": "Upgrade HTTP connection to WebSocket to receive real-time submission events (WS client required, not testable via Swagger UI directly).",
+                "tags": [
+                    "Dashboards"
+                ],
+                "summary": "Connect to live dashboard WebSocket",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Exam ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "101": {
+                        "description": "Switching protocols to WebSocket",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "426": {
+                        "description": "Update required",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {

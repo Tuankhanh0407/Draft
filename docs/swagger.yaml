@@ -1140,6 +1140,28 @@ paths:
       summary: Get submission details
       tags:
       - Submissions
+  /ws/v1/exams/{id}/live:
+    get:
+      description: Upgrade HTTP connection to WebSocket to receive real-time submission
+        events (WS client required, not testable via Swagger UI directly).
+      parameters:
+      - description: Exam ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "101":
+          description: Switching protocols to WebSocket
+          schema:
+            type: string
+        "426":
+          description: Update required
+          schema:
+            type: string
+      summary: Connect to live dashboard WebSocket
+      tags:
+      - Dashboards
 securityDefinitions:
   BearerAuth:
     description: Type "Bearer " followed by a space and JWT token.

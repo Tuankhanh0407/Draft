@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"github.com/redis/go-redis/v9"
 	"letuan.com/code_demo_backend/domain"
+	"log"
 	"math"
 	"time"
 )
@@ -32,30 +33,37 @@ func (u *questionUseCase) CreateQuestion(question *domain.Question) error {
 	return u.questionRepo.Create(question)
 }
 
-// GetQuestionForClient fetches a question via Redis cache and strips sensitive correct answers/explanations.
+// GetQuestionForClient fetches a question, prioritizing Redis cache with graceful MySQL fallback.
 func (u *questionUseCase) GetQuestionForClient(id uint, tenantID uint) (*domain.Question, error) {
 	ctx := context.Background()
 	cacheKey := fmt.Sprintf("question:%d:%d", tenantID, id)
-	var question domain.Question
-	// 1. Try fetching from cache.
-	cachedData, err := u.redisClient.Get(ctx, cacheKey).Result()
+	// 1. Attempt to fetch from Redis.
+	cached, err := u.redisClient.Get(ctx, cacheKey).Result()
 	if err == nil {
-		json.Unmarshal([]byte(cachedData), &question)
-	} else {
-		// 2. Fetch from database on cache miss.
-		q, err := u.questionRepo.GetByIDAndTenant(id, tenantID)
-		if err != nil {
-			return nil, errors.New("Question not found")
-		}
-		question = *q
-		// 3. Update cache.
-		questionBytes, _ := json.Marshal(question)
-		u.redisClient.Set(ctx, cacheKey, questionBytes, time.Hour)
+		// Cache hit.
+		var q domain.Question
+		json.Unmarshal([]byte(cached), &q)
+		return &q, nil
+	} else if err != redis.Nil {
+		// GRACEFUL FALLBACK: Redis is down or network error occurred.
+		// Instead of returning HTTP 500, we log the error and let the app query MySQL.
+		log.Printf("Warning: Redis cache failed for key %s. Falling back to MySQL. Error: %v\n", cacheKey, err)
 	}
-	// SECURITY: Ensure the student cannot cheat by inspecting the API response.
+	// Note: If err == redis.Nil, it is just a cache miss (normal behavior).
+	// 2. Fetch from MySQL (fallback/cache miss).
+	question, err := u.questionRepo.GetByIDAndTenant(id, tenantID)
+	if err != nil {
+		return nil, err // MySQL failed too, return error.
+	}
+	// 3. Strip sensitive correct answers before returning to the student.
 	question.CorrectData = nil
-	question.Explanation = "" // Hide explanation before they submit.
-	return &question, nil
+	// 4. Attempt to populate cache for future requests.
+	// Fire-and-forget logic: Ignore errors so Redis downtime does not affect user experience.
+	go func() {
+		qJSON, _ := json.Marshal(question)
+		u.redisClient.Set(context.Background(), cacheKey, qJSON, 1 * time.Hour)
+	}()
+	return question, nil
 }
 
 // CreateQuestionsBulk processes and imports large arrays of questions efficiently.

@@ -134,7 +134,7 @@ func (u *submissionUseCase) evaluateAnswers(exam *domain.Exam, tenantID uint, us
 	return score, totalGaps, correctCount, details
 }
 
-// EvaluateAndSave handles submissions, enforces MaxAttempts and time limits.
+// EvaluateAndSave processes answers, enforces limits, persists the result, and broadcasts to the live dashboard.
 func (u *submissionUseCase) EvaluateAndSave(req *domain.SubmitRequest) (*domain.EvaluationResult, error) {
 	exam, err := u.examRepo.GetByIDAndTenant(req.ExamID, req.TenantID)
 	if err != nil {
@@ -183,12 +183,30 @@ func (u *submissionUseCase) EvaluateAndSave(req *domain.SubmitRequest) (*domain.
 	// Clean up draft cache.
 	draftKey := fmt.Sprintf("draft:%d:%d:%d", req.TenantID, req.ExamID, req.UserID)
 	u.redisClient.Del(context.Background(), draftKey)
-	return &domain.EvaluationResult{
+	result := &domain.EvaluationResult{
 		TotalGaps: 	totalGaps,
 		Correct: 	correctCount,
 		Score: 		score,
 		Details: 	details,
-	}, nil
+	}
+	// 4. Real-time live dashboard (Pub/Sub).
+	// Broadcast the submission event to the Redis channel for this specific exam.
+	go func() {
+		ctx := context.Background()
+		channelName := fmt.Sprintf("exam_live_dashboard_%d", req.ExamID)
+		msg := domain.LiveDashboardMessage{
+			ExamID:		req.ExamID,
+			UserID:		req.UserID,
+			Score:		result.Score,
+			Message:	fmt.Sprintf("User ID %d has just submitted the exam and scored %.2f", req.UserID, result.Score),
+			Timestamp:	time.Now().Format(time.RFC3339),
+		}
+		msgBytes, _ := json.Marshal(msg)
+		// Fire-and-forget: Publish to Redis. Connected WebSocket clients will receive this immediately.
+		u.redisClient.Publish(ctx, channelName, msgBytes)
+	}()
+	
+	return result, nil
 }
 
 // RegradeExamSubmissions recalculates scores in the background after admin edits an answer key.

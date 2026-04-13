@@ -74,6 +74,16 @@ type LeaderboardEntry struct {
 	SubmittedAt			time.Time						`json:"submitted_at"`
 }
 
+// LiveDashboardMessage represents the payload broadcasted via WebSockets to teachers.
+type LiveDashboardMessage struct {
+	ExamID				uint							`json:"exam_id"`
+	UserID				uint							`json:"user_id"`
+	Username			string							`json:"username,omitempty"`
+	Score				float64							`json:"score"`
+	Message				string							`json:"message"`
+	Timestamp			string							`json:"timestamp"`
+}
+
 // SubmissionRepository defines database operations for submissions.
 type SubmissionRepository interface {
 	// Create saves a graded submission record to the database.

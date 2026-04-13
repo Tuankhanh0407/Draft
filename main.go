@@ -102,6 +102,7 @@ func main() {
     http.NewExamHandler(app, examUseCase, submissionUseCase, validate, enforcer)
     http.NewSubmissionHandler(app, submissionUseCase, validate, enforcer)
     http.NewMediaHandler(app, mediaUseCase, enforcer)
+    http.NewWebSocketHandler(app, rdb) // Register WebSocket handler for real-time dashboard.
     // 9. Start the HTTP server.
     log.Println("Server is successfully running on port 8080...")
     if err := app.Listen(":8080"); err != nil {
