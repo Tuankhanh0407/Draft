@@ -9,58 +9,9 @@
     "host": "localhost:8080",
     "basePath": "/",
     "paths": {
-        "/api/v1/auth/forgot-password": {
-            "post": {
-                "description": "Generate a 6-digit OTP and send it to the user's email.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Authentication"
-                ],
-                "summary": "Request password reset OTP",
-                "parameters": [
-                    {
-                        "description": "Email payload",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/domain.ForgotPasswordRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OTP sent successfully",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid request body",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "404": {
-                        "description": "Email not found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
         "/api/v1/auth/login": {
             "post": {
-                "description": "Authenticate a user and retrieve a Bearer token.",
+                "description": "Authenticate a user and return a JWT",
                 "consumes": [
                     "application/json"
                 ],
@@ -70,38 +21,41 @@
                 "tags": [
                     "Authentication"
                 ],
-                "summary": "Login to the system",
+                "summary": "User login",
                 "parameters": [
                     {
-                        "description": "Login credentials",
+                        "description": "Login info",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.AuthRequest"
+                            "$ref": "#/definitions/domain.LoginRequest"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Login successful with token",
+                        "description": "Successfully authenticated",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/domain.LoginResponse"
                         }
                     },
                     "400": {
-                        "description": "Invalid request body",
+                        "description": "Bad request: Invalid request body",
                         "schema": {
                             "type": "object",
-                            "additionalProperties": true
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     },
                     "401": {
-                        "description": "Unauthorized - Invalid credentials",
+                        "description": "Unauthorized: Invalid credentials",
                         "schema": {
                             "type": "object",
-                            "additionalProperties": true
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -109,7 +63,7 @@
         },
         "/api/v1/auth/register": {
             "post": {
-                "description": "Create a new student or teacher account within a specific tenant.",
+                "description": "Create a new user account bound to a specific tenant",
                 "consumes": [
                     "application/json"
                 ],
@@ -122,914 +76,35 @@
                 "summary": "Register a new user",
                 "parameters": [
                     {
-                        "description": "Registration payload",
+                        "description": "Registration info",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.AuthRequest"
+                            "$ref": "#/definitions/domain.RegisterRequest"
                         }
                     }
                 ],
                 "responses": {
                     "201": {
-                        "description": "User registered successfully",
+                        "description": "Successfully registered user",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/domain.User"
                         }
                     },
                     "400": {
-                        "description": "Invalid request body",
+                        "description": "Bad request: Invalid request body or validation failed",
                         "schema": {
                             "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict - Username or email already exists",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/auth/reset-password": {
-            "post": {
-                "description": "Verify the OTP from email and apply the new password.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Authentication"
-                ],
-                "summary": "Reset user password",
-                "parameters": [
-                    {
-                        "description": "OTP and new password payload",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/domain.ResetPasswordRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Password reset successful",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid request body",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized - Invalid or expired OTP",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/exams": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Create a new exam with specific question IDs.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Exams"
-                ],
-                "summary": "Create a new exam",
-                "parameters": [
-                    {
-                        "description": "Exam payload",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/domain.Exam"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Exam created successfully",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid request body",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict in creating exam",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/exams/{id}": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Fetch exam structure and details for a student to take.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Exams"
-                ],
-                "summary": "Get exam details",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Exam ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Exam details",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid exam ID format",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "404": {
-                        "description": "Exam not found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/exams/{id}/analytics": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Fetch performance statistics for an exam.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Exams"
-                ],
-                "summary": "Get exam analytics",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Exam ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Exam analytics",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid exam ID format",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "404": {
-                        "description": "Exam not found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/exams/{id}/cheat-log": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Record a proctoring alert during an active exam.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Exams"
-                ],
-                "summary": "Log a cheat event",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Exam ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Cheat log payload",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/domain.CheatLogRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Cheat event recorded successfully",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid request body",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/exams/{id}/export": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Download the leaderboard of a specific exam as an Excel file (.xlsx) for reporting.",
-                "produces": [
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                ],
-                "tags": [
-                    "Exams"
-                ],
-                "summary": "Export exam leaderboard to Excel",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Exam ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Excel file",
-                        "schema": {
-                            "type": "file"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid exam ID format",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized access",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/media/upload": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Upload images or audio files to cloud storage (max 10MB).",
-                "consumes": [
-                    "multipart/form-data"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Media"
-                ],
-                "summary": "Upload a media file",
-                "parameters": [
-                    {
-                        "type": "file",
-                        "description": "File to upload",
-                        "name": "file",
-                        "in": "formData",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "File uploaded successfully",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid form data",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized access",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "413": {
-                        "description": "File too large",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/questions": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Fetch a paginated list of questions, with optional tag filtering.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Questions"
-                ],
-                "summary": "List all questions",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "default": 1,
-                        "description": "Page number",
-                        "name": "page",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "default": 10,
-                        "description": "Items per page",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Filter by tags (comma separated)",
-                        "name": "tags",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "List of questions",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            },
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Add a new question to the bank.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Questions"
-                ],
-                "summary": "Create a single question",
-                "parameters": [
-                    {
-                        "description": "Question payload",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/domain.Question"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Question created successfully",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid request body",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict in creation",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/questions/bulk": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Import multiple questions simultaneously.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Questions"
-                ],
-                "summary": "Bulk create questions",
-                "parameters": [
-                    {
-                        "description": "Array of questions",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/domain.Question"
+                            "additionalProperties": {
+                                "type": "string"
                             }
                         }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Questions imported successfully",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
                     },
-                    "400": {
-                        "description": "Invalid request body",
+                    "409": {
+                        "description": "Conflict: User already exists in the specified tenant",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/questions/{id}": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Retrieve a specific question (correct answers are stripped for clients).",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Questions"
-                ],
-                "summary": "Get question details",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Question ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Question details",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid question ID format",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "404": {
-                        "description": "Question not found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/submissions": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Evaluate student's answers and save the submission record.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Submissions"
-                ],
-                "summary": "Submit an exam",
-                "parameters": [
-                    {
-                        "description": "Submission payload",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/domain.SubmitRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Submission evaluated successfully",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid request body or exam timing",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "403": {
-                        "description": "Maximum attempts reached",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/submissions/draft": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Temporarily save exam answers to Redis cache.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Submissions"
-                ],
-                "summary": "Save answer draft",
-                "parameters": [
-                    {
-                        "description": "Draft payload",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/domain.SubmitRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Draft saved successfully",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid request body",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/submissions/draft/{exam_id}": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Retrieve auto-saved answers from Redis cache.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Submissions"
-                ],
-                "summary": "Get answer draft",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Exam ID",
-                        "name": "exam_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Draft retrieved",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid exam ID format",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/submissions/leaderboard/{exam_id}": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Fetch top scores for a specific exam.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Submissions"
-                ],
-                "summary": "Get exam leaderboard",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Exam ID",
-                        "name": "exam_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "default": 10,
-                        "description": "Number of top results",
-                        "name": "limit",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Leaderboard data",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid exam ID format",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "404": {
-                        "description": "Exam not found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/submissions/regrade/{exam_id}": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Recalculate scores for all submissions of a specific exam.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Submissions"
-                ],
-                "summary": "Regrade an exam",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Exam ID",
-                        "name": "exam_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "202": {
-                        "description": "Regrading progress started",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid exam ID format",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "type": "onject"
                         }
                     }
                 }
@@ -1059,7 +134,9 @@
                         "description": "Internal server error",
                         "schema": {
                             "type": "object",
-                            "additionalProperties": true
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -1098,14 +175,18 @@
                         "description": "Invalid request body",
                         "schema": {
                             "type": "object",
-                            "additionalProperties": true
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     },
                     "409": {
                         "description": "Tenant already exists or database error",
                         "schema": {
                             "type": "object",
-                            "additionalProperties": true
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -1141,7 +222,9 @@
                         "description": "Tenant not found",
                         "schema": {
                             "type": "object",
-                            "additionalProperties": true
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -1184,10 +267,12 @@
                         }
                     },
                     "400": {
-                        "description": "Bad request - Invalid payload or update failed",
+                        "description": "Bad request: Invalid payload or update failed",
                         "schema": {
                             "type": "object",
-                            "additionalProperties": true
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -1197,7 +282,7 @@
                 "tags": [
                     "Tenants"
                 ],
-                "summary": "Soft delete a tenant",
+                "summary": "Delete a tenant",
                 "parameters": [
                     {
                         "type": "integer",
@@ -1209,101 +294,15 @@
                 ],
                 "responses": {
                     "204": {
-                        "description": "No content - Successfully deleted"
+                        "description": "No content: Successfully deleted"
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
                             "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/users/me/submissions": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Retrieve the history of exams taken by the current user.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Submissions"
-                ],
-                "summary": "Get user's submissions",
-                "responses": {
-                    "200": {
-                        "description": "User submission history",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/users/me/submissions/{id}": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Review detailed answers, scores, and proctoring logs for a submission.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Submissions"
-                ],
-                "summary": "Get submission details",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Submission ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Submission details",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid submission ID",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden access",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -1343,257 +342,55 @@
         }
     },
     "definitions": {
-        "domain.AuthRequest": {
+        "domain.LoginRequest": {
             "type": "object",
             "required": [
+                "email",
                 "password",
-                "tenant_id",
-                "username"
+                "tenant_id"
             ],
             "properties": {
                 "email": {
-                    "description": "Optional for login, required for registration.",
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "tenant_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "domain.LoginResponse": {
+            "type": "object",
+            "properties": {
+                "token": {
+                    "type": "string"
+                },
+                "user": {
+                    "$ref": "#/definitions/domain.User"
+                }
+            }
+        },
+        "domain.RegisterRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "password",
+                "tenant_id"
+            ],
+            "properties": {
+                "email": {
                     "type": "string"
                 },
                 "password": {
                     "type": "string",
-                    "minLength": 6
+                    "minLength": 8
                 },
-                "tenant_id": {
-                    "type": "integer"
-                },
-                "username": {
-                    "type": "string",
-                    "minLength": 4
-                }
-            }
-        },
-        "domain.CheatLogRequest": {
-            "type": "object",
-            "required": [
-                "event_type",
-                "exam_id"
-            ],
-            "properties": {
-                "event_type": {
-                    "type": "string"
-                },
-                "exam_id": {
-                    "type": "integer"
-                }
-            }
-        },
-        "domain.Exam": {
-            "type": "object",
-            "required": [
-                "question_ids",
-                "tenant_id",
-                "title"
-            ],
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "duration_minutes": {
-                    "description": "0 means unlimited duration.",
-                    "type": "integer"
-                },
-                "end_time": {
-                    "description": "Nullable: No end limit if null.",
-                    "type": "string"
-                },
-                "exam_id": {
-                    "type": "integer"
-                },
-                "max_attempts": {
-                    "description": "Limit number of times a user can take this exam (0 = unlimited).",
-                    "type": "integer"
-                },
-                "question_ids": {
-                    "description": "Array of referenced question IDs.",
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                },
-                "start_time": {
-                    "description": "Nullable: No start limit if null.",
+                "role": {
                     "type": "string"
                 },
                 "tenant_id": {
-                    "type": "integer"
-                },
-                "title": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
-        "domain.ForgotPasswordRequest": {
-            "type": "object",
-            "required": [
-                "email",
-                "tenant_id"
-            ],
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "tenant_id": {
-                    "type": "integer"
-                }
-            }
-        },
-        "domain.Node": {
-            "type": "object",
-            "properties": {
-                "id": {
-                    "description": "Identifier for interactive nodes like gaps.",
-                    "type": "string"
-                },
-                "options": {
-                    "description": "Used for multiple choice or matching options.",
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "size": {
-                    "description": "Determine input width for gaps.",
-                    "type": "integer"
-                },
-                "type": {
-                    "description": "In example: \"text\", \"gap\", \"image\"...",
-                    "type": "string"
-                },
-                "value": {
-                    "description": "Used for \"text\" nodes.",
-                    "type": "string"
-                }
-            }
-        },
-        "domain.Question": {
-            "type": "object",
-            "required": [
-                "content",
-                "question_type",
-                "tenant_id"
-            ],
-            "properties": {
-                "content": {
-                    "description": "Auto-converted to JSON in MySQL.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/domain.QuestionContent"
-                        }
-                    ]
-                },
-                "correct_data": {
-                    "description": "Hidden in client responses.",
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        }
-                    }
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "explanation": {
-                    "type": "string"
-                },
-                "question_id": {
-                    "type": "integer"
-                },
-                "question_type": {
-                    "description": "In example: \"GAP_FILL\".",
-                    "type": "string"
-                },
-                "tags": {
-                    "description": "Array of tags for categorization/filtering.",
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "tenant_id": {
-                    "type": "integer"
-                },
-                "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
-        "domain.QuestionContent": {
-            "type": "object",
-            "properties": {
-                "instruction": {
-                    "type": "string"
-                },
-                "media_url": {
-                    "type": "string"
-                },
-                "nodes": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/domain.Node"
-                    }
-                }
-            }
-        },
-        "domain.ResetPasswordRequest": {
-            "type": "object",
-            "required": [
-                "email",
-                "new_password",
-                "otp",
-                "tenant_id"
-            ],
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "new_password": {
-                    "type": "string",
-                    "minLength": 6
-                },
-                "otp": {
-                    "type": "string"
-                },
-                "tenant_id": {
-                    "type": "integer"
-                }
-            }
-        },
-        "domain.SubmitRequest": {
-            "type": "object",
-            "required": [
-                "answers",
-                "exam_id",
-                "tenant_id"
-            ],
-            "properties": {
-                "answers": {
-                    "description": "Format: map[questionID]map[gapID]answer",
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "object",
-                        "additionalProperties": {
-                            "type": "string"
-                        }
-                    }
-                },
-                "exam_id": {
-                    "type": "integer"
-                },
-                "tenant_id": {
-                    "type": "integer"
-                },
-                "user_id": {
                     "type": "integer"
                 }
             }
@@ -1612,6 +409,29 @@
                 },
                 "name": {
                     "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.User": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "tenant_id": {
+                    "type": "integer"
                 },
                 "updated_at": {
                     "type": "string"

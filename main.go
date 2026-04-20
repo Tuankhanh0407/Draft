@@ -22,20 +22,26 @@ import (
 // @host localhost:8080
 // @BasePath /
 func main() {
-    // Database connection string from .env
+    // 1. Database connection setup.
     dsn := os.Getenv("DB_DSN")
     db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
     if err != nil {
         log.Fatal("Failed to connect to database")
     }
-    // Auto migration.
-    db.AutoMigrate(&domain.Tenant{})
+    // 2. Auto migrate schema.
+    db.AutoMigrate(&domain.Tenant{}, &domain.User{})
     app := fiber.New()
-    // Swagger setup.
+    // 3. Swagger route.
     app.Get("/swagger/*", swagger.HandlerDefault)
-    // Dependency injection.
+    // 4. Dependency injection.
+    // 4.1. Tenant.
     tenantRepo := repository.NewMysqlTenantRepository(db)
     tenantUsecase := usecases.NewTenantUsecase(tenantRepo)
     http.NewTenantHandler(app, tenantUsecase)
+    // 4.2. Auth/User.
+    userRepo := repository.NewMysqlUserRepository(db)
+    userUsecase := usecases.NewUserUsecase(userRepo)
+    http.NewUserHandler(app, userUsecase)
+    // 5. Start server.
     log.Fatal(app.Listen(":8080"))
 }

@@ -3,65 +3,51 @@ package domain
 
 // Import necessary libraries.
 import (
-	"gorm.io/gorm"
+	"context"
 	"time"
 )
 
-// User represents a system user (student or admin) tied to a specific tenant.
+// User represents a user entity in the database.
+// The combination of TenantID and Email must be unique.
 type User struct {
-	ID				uint			`json:"id" gorm:"primaryKey;autoIncrement"`
-	TenantID		uint			`json:"tenant_id" gorm:"not null;index"` // Multi-tenant compliance.
-	Username		string			`json:"username" gorm:"type:varchar(100);not null;uniqueIndex:idx_tenant_username"`
-	Email			string			`json:"email" gorm:"type:varchar(150);not null;uniqueIndex:idx_tenant_email"` // Required for password recovery.
-	Password		string			`json:"-" gorm:"type:varchar(255);not null"` // Hyphen "-" hides password from JSON responses.
-	Role			string			`json:"role" gorm:"type:varchar(20);default:'student'"`
-	CreatedAt		time.Time		`json:"created_at"`
-	UpdatedAt		time.Time		`json:"updated_at"`
-	DeletedAt		gorm.DeletedAt	`json:"-" gorm:"index"` // Soft delete.
+	ID			uint			`json:"id" gorm:"primaryKey;autoIncrement"`
+	TenantID	uint			`json:"tenant_id" gorm:"uniqueIndex:idx_tenant_email;not null"`
+	Email		string			`json:"email" gorm:"uniqueIndex:idx_tenant_email;size:255;not null"`
+	Password	string			`json:"-" gorm:"not null"` // "-" ensures password is never exported in JSON.
+	Role		string			`json:"role" gorm:"size:50;default:'student'"`
+	CreatedAt	time.Time		`json:"created_at"`
+	UpdatedAt	time.Time		`json:"updated_at"`
 }
 
-// AuthRequest represents the payload for login and registration requests.
-type AuthRequest struct {
-	TenantID 		uint 			`json:"tenant_id" validate:"required"`
-	Username 		string 			`json:"username" validate:"required,min=4"`
-	Email			string			`json:"email,omitempty" validate:"omitempty,email"` // Optional for login, required for registration.
-	Password 		string 			`json:"password" validate:"required,min=6"`
+// RegisterRequest represents the payload for user registration.
+type RegisterRequest struct {
+	TenantID	uint			`json:"tenant_id" validate:"required"`
+	Email		string			`json:"email" validate:"required,email"`
+	Password	string			`json:"password" validate:"required,min=8"`
+	Role		string			`json:"role"`
 }
 
-// ForgetPasswordRequest is the payload to request an OTP.
-type ForgotPasswordRequest struct {
-	TenantID		uint			`json:"tenant_id" validate:"required"`
-	Email			string			`json:"email" validate:"required,email"`
+// LoginRequest represents the payload for user authentication.
+type LoginRequest struct {
+	TenantID	uint			`json:"tenant_id" validate:"required"`
+	Email		string			`json:"email" validate:"required,email"`
+	Password	string			`json:"password" validate:"required"`
 }
 
-// ResetPasswordRequest is the payload to request an OTP.
-type ResetPasswordRequest struct {
-	TenantID		uint			`json:"tenant_id" validate:"required"`
-	Email			string			`json:"email" validate:"required,email"`
-	OTP				string			`json:"otp" validate:"required,len=6"`
-	NewPassword		string			`json:"new_password" validate:"required,min=6"`
+// LoginResponse represents the payload returned upon successful login.
+type LoginResponse struct {
+	Token		string			`json:"token"`
+	User		User			`json:"user"`
 }
 
-// UserRepository defines database operations for a User.
+// UserRepository defines the contract for user database operations.
 type UserRepository interface {
-	// Create saves a new user record to the database.
-	Create(user *User) error
-	// GetByUsernameAndTenant finds a user based on their username within a specific tenant.
-	GetByUsernameAndTenant(username string, tenantID uint) (*User, error)
-	// GetByEmailAndTenant gets user by email to send OTP.
-	GetByEmailAndTenant(email string, tenantID uint) (*User, error)
-	// Update updates user details (in example, changing password).
-	Update(user *User) error
+	Create(ctx context.Context, user *User) error
+	GetByEmailAndTenant(ctx context.Context, email string, tenantID uint) (User, error)
 }
 
-// AuthUseCase defines business logic for authentication.
-type AuthUseCase interface {
-	// Register validates inputs and creates a new user account.
-	Register(req *AuthRequest) (*User, error)
-	// Login authenticates a user and returns a JWT token upon success.
-	Login(req *AuthRequest) (string, error)
-	// RequestPasswordReset requests an OTP to the user's email.
-	RequestPasswordReset(req *ForgotPasswordRequest) error
-	// ResetPassword validates OTP and applies the new password.
-	ResetPassword(req *ResetPasswordRequest) error
+// UserUsecase defines the business logic for user authentication.
+type UserUsecase interface {
+	Register(ctx context.Context, req *RegisterRequest) (User, error)
+	Login(ctx context.Context, req *LoginRequest) (LoginResponse, error)
 }

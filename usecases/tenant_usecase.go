@@ -35,12 +35,15 @@ func (u *tenantUsecase) Create(ctx context.Context, tenant *domain.Tenant) error
 
 // Update modifies an existing tenant's details while preserving protected fields like CreatedAt.
 func (u *tenantUsecase) Update(ctx context.Context, id uint, tenant *domain.Tenant) error {
+	// 1. Fetch the existing record to ensure it exists and to retain its current state.
 	existing, err := u.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
 	}
+	// 2. Apply safe updates: Only modify fields that are allowed to be changed.
 	existing.Name = tenant.Name
 	existing.Code = tenant.Code
+	// 3. Persist the safely merged record back to the database.
 	return u.repo.Update(ctx, &existing)
 }
 

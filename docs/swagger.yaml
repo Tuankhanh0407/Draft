@@ -1,179 +1,39 @@
 basePath: /
 definitions:
-  domain.AuthRequest:
+  domain.LoginRequest:
     properties:
       email:
-        description: Optional for login, required for registration.
         type: string
       password:
-        minLength: 6
         type: string
       tenant_id:
         type: integer
-      username:
-        minLength: 4
-        type: string
     required:
+    - email
     - password
     - tenant_id
-    - username
     type: object
-  domain.CheatLogRequest:
+  domain.LoginResponse:
     properties:
-      event_type:
+      token:
         type: string
-      exam_id:
-        type: integer
-    required:
-    - event_type
-    - exam_id
+      user:
+        $ref: '#/definitions/domain.User'
     type: object
-  domain.Exam:
-    properties:
-      created_at:
-        type: string
-      duration_minutes:
-        description: 0 means unlimited duration.
-        type: integer
-      end_time:
-        description: 'Nullable: No end limit if null.'
-        type: string
-      exam_id:
-        type: integer
-      max_attempts:
-        description: Limit number of times a user can take this exam (0 = unlimited).
-        type: integer
-      question_ids:
-        description: Array of referenced question IDs.
-        items:
-          type: integer
-        type: array
-      start_time:
-        description: 'Nullable: No start limit if null.'
-        type: string
-      tenant_id:
-        type: integer
-      title:
-        type: string
-      updated_at:
-        type: string
-    required:
-    - question_ids
-    - tenant_id
-    - title
-    type: object
-  domain.ForgotPasswordRequest:
+  domain.RegisterRequest:
     properties:
       email:
+        type: string
+      password:
+        minLength: 8
+        type: string
+      role:
         type: string
       tenant_id:
         type: integer
     required:
     - email
-    - tenant_id
-    type: object
-  domain.Node:
-    properties:
-      id:
-        description: Identifier for interactive nodes like gaps.
-        type: string
-      options:
-        additionalProperties:
-          type: string
-        description: Used for multiple choice or matching options.
-        type: object
-      size:
-        description: Determine input width for gaps.
-        type: integer
-      type:
-        description: 'In example: "text", "gap", "image"...'
-        type: string
-      value:
-        description: Used for "text" nodes.
-        type: string
-    type: object
-  domain.Question:
-    properties:
-      content:
-        allOf:
-        - $ref: '#/definitions/domain.QuestionContent'
-        description: Auto-converted to JSON in MySQL.
-      correct_data:
-        additionalProperties:
-          items:
-            type: string
-          type: array
-        description: Hidden in client responses.
-        type: object
-      created_at:
-        type: string
-      explanation:
-        type: string
-      question_id:
-        type: integer
-      question_type:
-        description: 'In example: "GAP_FILL".'
-        type: string
-      tags:
-        description: Array of tags for categorization/filtering.
-        items:
-          type: string
-        type: array
-      tenant_id:
-        type: integer
-      updated_at:
-        type: string
-    required:
-    - content
-    - question_type
-    - tenant_id
-    type: object
-  domain.QuestionContent:
-    properties:
-      instruction:
-        type: string
-      media_url:
-        type: string
-      nodes:
-        items:
-          $ref: '#/definitions/domain.Node'
-        type: array
-    type: object
-  domain.ResetPasswordRequest:
-    properties:
-      email:
-        type: string
-      new_password:
-        minLength: 6
-        type: string
-      otp:
-        type: string
-      tenant_id:
-        type: integer
-    required:
-    - email
-    - new_password
-    - otp
-    - tenant_id
-    type: object
-  domain.SubmitRequest:
-    properties:
-      answers:
-        additionalProperties:
-          additionalProperties:
-            type: string
-          type: object
-        description: 'Format: map[questionID]map[gapID]answer'
-        type: object
-      exam_id:
-        type: integer
-      tenant_id:
-        type: integer
-      user_id:
-        type: integer
-    required:
-    - answers
-    - exam_id
+    - password
     - tenant_id
     type: object
   domain.Tenant:
@@ -189,6 +49,21 @@ definitions:
       updated_at:
         type: string
     type: object
+  domain.User:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: integer
+      role:
+        type: string
+      tenant_id:
+        type: integer
+      updated_at:
+        type: string
+    type: object
 host: localhost:8080
 info:
   contact: {}
@@ -196,683 +71,72 @@ info:
   title: Assessment Core Engine API
   version: "1.0"
 paths:
-  /api/v1/auth/forgot-password:
-    post:
-      consumes:
-      - application/json
-      description: Generate a 6-digit OTP and send it to the user's email.
-      parameters:
-      - description: Email payload
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/domain.ForgotPasswordRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OTP sent successfully
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Invalid request body
-          schema:
-            additionalProperties: true
-            type: object
-        "404":
-          description: Email not found
-          schema:
-            additionalProperties: true
-            type: object
-      summary: Request password reset OTP
-      tags:
-      - Authentication
   /api/v1/auth/login:
     post:
       consumes:
       - application/json
-      description: Authenticate a user and retrieve a Bearer token.
+      description: Authenticate a user and return a JWT
       parameters:
-      - description: Login credentials
+      - description: Login info
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/domain.AuthRequest'
+          $ref: '#/definitions/domain.LoginRequest'
       produces:
       - application/json
       responses:
         "200":
-          description: Login successful with token
+          description: Successfully authenticated
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/domain.LoginResponse'
         "400":
-          description: Invalid request body
+          description: 'Bad request: Invalid request body'
           schema:
-            additionalProperties: true
+            additionalProperties:
+              type: string
             type: object
         "401":
-          description: Unauthorized - Invalid credentials
+          description: 'Unauthorized: Invalid credentials'
           schema:
-            additionalProperties: true
+            additionalProperties:
+              type: string
             type: object
-      summary: Login to the system
+      summary: User login
       tags:
       - Authentication
   /api/v1/auth/register:
     post:
       consumes:
       - application/json
-      description: Create a new student or teacher account within a specific tenant.
+      description: Create a new user account bound to a specific tenant
       parameters:
-      - description: Registration payload
+      - description: Registration info
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/domain.AuthRequest'
+          $ref: '#/definitions/domain.RegisterRequest'
       produces:
       - application/json
       responses:
         "201":
-          description: User registered successfully
+          description: Successfully registered user
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/domain.User'
         "400":
-          description: Invalid request body
+          description: 'Bad request: Invalid request body or validation failed'
           schema:
-            additionalProperties: true
+            additionalProperties:
+              type: string
             type: object
         "409":
-          description: Conflict - Username or email already exists
+          description: 'Conflict: User already exists in the specified tenant'
           schema:
-            additionalProperties: true
-            type: object
+            type: onject
       summary: Register a new user
       tags:
       - Authentication
-  /api/v1/auth/reset-password:
-    post:
-      consumes:
-      - application/json
-      description: Verify the OTP from email and apply the new password.
-      parameters:
-      - description: OTP and new password payload
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/domain.ResetPasswordRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Password reset successful
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Invalid request body
-          schema:
-            additionalProperties: true
-            type: object
-        "401":
-          description: Unauthorized - Invalid or expired OTP
-          schema:
-            additionalProperties: true
-            type: object
-      summary: Reset user password
-      tags:
-      - Authentication
-  /api/v1/exams:
-    post:
-      consumes:
-      - application/json
-      description: Create a new exam with specific question IDs.
-      parameters:
-      - description: Exam payload
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/domain.Exam'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Exam created successfully
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Invalid request body
-          schema:
-            additionalProperties: true
-            type: object
-        "409":
-          description: Conflict in creating exam
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Create a new exam
-      tags:
-      - Exams
-  /api/v1/exams/{id}:
-    get:
-      consumes:
-      - application/json
-      description: Fetch exam structure and details for a student to take.
-      parameters:
-      - description: Exam ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Exam details
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Invalid exam ID format
-          schema:
-            additionalProperties: true
-            type: object
-        "404":
-          description: Exam not found
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Get exam details
-      tags:
-      - Exams
-  /api/v1/exams/{id}/analytics:
-    get:
-      consumes:
-      - application/json
-      description: Fetch performance statistics for an exam.
-      parameters:
-      - description: Exam ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Exam analytics
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Invalid exam ID format
-          schema:
-            additionalProperties: true
-            type: object
-        "404":
-          description: Exam not found
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Get exam analytics
-      tags:
-      - Exams
-  /api/v1/exams/{id}/cheat-log:
-    post:
-      consumes:
-      - application/json
-      description: Record a proctoring alert during an active exam.
-      parameters:
-      - description: Exam ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: Cheat log payload
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/domain.CheatLogRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Cheat event recorded successfully
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Invalid request body
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal server error
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Log a cheat event
-      tags:
-      - Exams
-  /api/v1/exams/{id}/export:
-    get:
-      description: Download the leaderboard of a specific exam as an Excel file (.xlsx)
-        for reporting.
-      parameters:
-      - description: Exam ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
-      responses:
-        "200":
-          description: Excel file
-          schema:
-            type: file
-        "400":
-          description: Invalid exam ID format
-          schema:
-            additionalProperties: true
-            type: object
-        "401":
-          description: Unauthorized access
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal server error
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Export exam leaderboard to Excel
-      tags:
-      - Exams
-  /api/v1/media/upload:
-    post:
-      consumes:
-      - multipart/form-data
-      description: Upload images or audio files to cloud storage (max 10MB).
-      parameters:
-      - description: File to upload
-        in: formData
-        name: file
-        required: true
-        type: file
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: File uploaded successfully
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Invalid form data
-          schema:
-            additionalProperties: true
-            type: object
-        "401":
-          description: Unauthorized access
-          schema:
-            additionalProperties: true
-            type: object
-        "413":
-          description: File too large
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal server error
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Upload a media file
-      tags:
-      - Media
-  /api/v1/questions:
-    get:
-      consumes:
-      - application/json
-      description: Fetch a paginated list of questions, with optional tag filtering.
-      parameters:
-      - default: 1
-        description: Page number
-        in: query
-        name: page
-        type: integer
-      - default: 10
-        description: Items per page
-        in: query
-        name: limit
-        type: integer
-      - description: Filter by tags (comma separated)
-        in: query
-        name: tags
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: List of questions
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal server error
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: List all questions
-      tags:
-      - Questions
-    post:
-      consumes:
-      - application/json
-      description: Add a new question to the bank.
-      parameters:
-      - description: Question payload
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/domain.Question'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Question created successfully
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Invalid request body
-          schema:
-            additionalProperties: true
-            type: object
-        "409":
-          description: Conflict in creation
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Create a single question
-      tags:
-      - Questions
-  /api/v1/questions/{id}:
-    get:
-      consumes:
-      - application/json
-      description: Retrieve a specific question (correct answers are stripped for
-        clients).
-      parameters:
-      - description: Question ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Question details
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Invalid question ID format
-          schema:
-            additionalProperties: true
-            type: object
-        "404":
-          description: Question not found
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Get question details
-      tags:
-      - Questions
-  /api/v1/questions/bulk:
-    post:
-      consumes:
-      - application/json
-      description: Import multiple questions simultaneously.
-      parameters:
-      - description: Array of questions
-        in: body
-        name: request
-        required: true
-        schema:
-          items:
-            $ref: '#/definitions/domain.Question'
-          type: array
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Questions imported successfully
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Invalid request body
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal server error
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Bulk create questions
-      tags:
-      - Questions
-  /api/v1/submissions:
-    post:
-      consumes:
-      - application/json
-      description: Evaluate student's answers and save the submission record.
-      parameters:
-      - description: Submission payload
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/domain.SubmitRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Submission evaluated successfully
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Invalid request body or exam timing
-          schema:
-            additionalProperties: true
-            type: object
-        "403":
-          description: Maximum attempts reached
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal server error
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Submit an exam
-      tags:
-      - Submissions
-  /api/v1/submissions/draft:
-    post:
-      consumes:
-      - application/json
-      description: Temporarily save exam answers to Redis cache.
-      parameters:
-      - description: Draft payload
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/domain.SubmitRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Draft saved successfully
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Invalid request body
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal server error
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Save answer draft
-      tags:
-      - Submissions
-  /api/v1/submissions/draft/{exam_id}:
-    get:
-      consumes:
-      - application/json
-      description: Retrieve auto-saved answers from Redis cache.
-      parameters:
-      - description: Exam ID
-        in: path
-        name: exam_id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Draft retrieved
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Invalid exam ID format
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal server error
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Get answer draft
-      tags:
-      - Submissions
-  /api/v1/submissions/leaderboard/{exam_id}:
-    get:
-      consumes:
-      - application/json
-      description: Fetch top scores for a specific exam.
-      parameters:
-      - description: Exam ID
-        in: path
-        name: exam_id
-        required: true
-        type: integer
-      - default: 10
-        description: Number of top results
-        in: query
-        name: limit
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Leaderboard data
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Invalid exam ID format
-          schema:
-            additionalProperties: true
-            type: object
-        "404":
-          description: Exam not found
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Get exam leaderboard
-      tags:
-      - Submissions
-  /api/v1/submissions/regrade/{exam_id}:
-    post:
-      consumes:
-      - application/json
-      description: Recalculate scores for all submissions of a specific exam.
-      parameters:
-      - description: Exam ID
-        in: path
-        name: exam_id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "202":
-          description: Regrading progress started
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Invalid exam ID format
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Regrade an exam
-      tags:
-      - Submissions
   /api/v1/tenants:
     get:
       description: Retrieve a list of all organizations
@@ -888,7 +152,8 @@ paths:
         "500":
           description: Internal server error
           schema:
-            additionalProperties: true
+            additionalProperties:
+              type: string
             type: object
       summary: Get all tenants
       tags:
@@ -914,12 +179,14 @@ paths:
         "400":
           description: Invalid request body
           schema:
-            additionalProperties: true
+            additionalProperties:
+              type: string
             type: object
         "409":
           description: Tenant already exists or database error
           schema:
-            additionalProperties: true
+            additionalProperties:
+              type: string
             type: object
       summary: Create a new tenant
       tags:
@@ -935,13 +202,14 @@ paths:
         type: integer
       responses:
         "204":
-          description: No content - Successfully deleted
+          description: 'No content: Successfully deleted'
         "500":
           description: Internal server error
           schema:
-            additionalProperties: true
+            additionalProperties:
+              type: string
             type: object
-      summary: Soft delete a tenant
+      summary: Delete a tenant
       tags:
       - Tenants
     get:
@@ -962,7 +230,8 @@ paths:
         "404":
           description: Tenant not found
           schema:
-            additionalProperties: true
+            additionalProperties:
+              type: string
             type: object
       summary: Get tenant by ID
       tags:
@@ -992,70 +261,14 @@ paths:
           schema:
             $ref: '#/definitions/domain.Tenant'
         "400":
-          description: Bad request - Invalid payload or update failed
+          description: 'Bad request: Invalid payload or update failed'
           schema:
-            additionalProperties: true
+            additionalProperties:
+              type: string
             type: object
       summary: Update entire tenant
       tags:
       - Tenants
-  /api/v1/users/me/submissions:
-    get:
-      consumes:
-      - application/json
-      description: Retrieve the history of exams taken by the current user.
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: User submission history
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal server error
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Get user's submissions
-      tags:
-      - Submissions
-  /api/v1/users/me/submissions/{id}:
-    get:
-      consumes:
-      - application/json
-      description: Review detailed answers, scores, and proctoring logs for a submission.
-      parameters:
-      - description: Submission ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Submission details
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Invalid submission ID
-          schema:
-            additionalProperties: true
-            type: object
-        "403":
-          description: Forbidden access
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Get submission details
-      tags:
-      - Submissions
   /ws/v1/exams/{id}/live:
     get:
       description: Upgrade HTTP connection to WebSocket to receive real-time submission

@@ -31,7 +31,7 @@ func NewTenantHandler(app *fiber.App, us domain.TenantUsecase) {
 // @Tags Tenants
 // @Produce json
 // @Success 200 {array} domain.Tenant "List of tenants"
-// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Failure 500 {object} map[string]string "Internal server error"
 // @Router /api/v1/tenants [get]
 func (h *TenantHandler) GetAll(c *fiber.Ctx) error {
 	tenants, err := h.Usecase.GetAll(c.Context())
@@ -48,7 +48,7 @@ func (h *TenantHandler) GetAll(c *fiber.Ctx) error {
 // @Produce json
 // @Param id path int true "Tenant ID"
 // @Success 200 {object} domain.Tenant "Successfully retrieved tenant"
-// @Failure 404 {object} map[string]interface{} "Tenant not found"
+// @Failure 404 {object} map[string]string "Tenant not found"
 // @Router /api/v1/tenants/{id} [get]
 func (h *TenantHandler) GetByID(c *fiber.Ctx) error {
 	id, _ := strconv.Atoi(c.Params("id"))
@@ -67,8 +67,8 @@ func (h *TenantHandler) GetByID(c *fiber.Ctx) error {
 // @Produce json
 // @Param tenant body domain.Tenant true "Tenant info"
 // @Success 201 {object} domain.Tenant "Successfully created tenant"
-// @Failure 400 {object} map[string]interface{} "Invalid request body"
-// @Failure 409 {object} map[string]interface{} "Tenant already exists or database error"
+// @Failure 400 {object} map[string]string "Invalid request body"
+// @Failure 409 {object} map[string]string "Tenant already exists or database error"
 // @Router /api/v1/tenants [post]
 func (h *TenantHandler) Create(c *fiber.Ctx) error {
 	tenant := new(domain.Tenant)
@@ -90,7 +90,7 @@ func (h *TenantHandler) Create(c *fiber.Ctx) error {
 // @Param id path int true "Tenant ID"
 // @Param tenant body domain.Tenant true "Updated tenant information"
 // @Success 200 {object} domain.Tenant "Successfully updated tenant"
-// @Failure 400 {object} map[string]interface{} "Bad request - Invalid payload or update failed"
+// @Failure 400 {object} map[string]string "Bad request: Invalid payload or update failed"
 // @Router /api/v1/tenants/{id} [put]
 func (h *TenantHandler) Update(c *fiber.Ctx) error {
 	id, _ := strconv.Atoi(c.Params("id"))
@@ -106,12 +106,12 @@ func (h *TenantHandler) Update(c *fiber.Ctx) error {
 }
 
 // Delete removes a tenant from the system.
-// @Summary Soft delete a tenant
+// @Summary Delete a tenant
 // @Description Delete a tenant by ID
 // @Tags Tenants
 // @Param id path int true "Tenant ID"
-// @Success 204 "No content - Successfully deleted"
-// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Success 204 "No content: Successfully deleted"
+// @Failure 500 {object} map[string]string "Internal server error"
 // @Router /api/v1/tenants/{id} [delete]
 func (h *TenantHandler) Delete(c *fiber.Ctx) error {
 	id, _ := strconv.Atoi(c.Params("id"))
