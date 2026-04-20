@@ -178,29 +178,21 @@ definitions:
     type: object
   domain.Tenant:
     properties:
-      create_at:
+      code:
         type: string
-      name:
-        minLength: 3
+      created_at:
         type: string
-      status:
-        type: string
-      tenant_id:
+      id:
         type: integer
+      name:
+        type: string
       updated_at:
         type: string
-    required:
-    - name
     type: object
 host: localhost:8080
 info:
-  contact:
-    email: hoangletuan031004@gmail.com
-    name: API support
-  description: This is a multi-tenant assessment and online examination core engine.
-  license:
-    name: MIT
-    url: https://opensource.org/licenses/MIT
+  contact: {}
+  description: API for managing multi-tenant assessments
   title: Assessment Core Engine API
   version: "1.0"
 paths:
@@ -883,98 +875,77 @@ paths:
       - Submissions
   /api/v1/tenants:
     get:
-      consumes:
-      - application/json
-      description: Fetch a list of all organizations/
+      description: Retrieve a list of all organizations
       produces:
       - application/json
       responses:
         "200":
           description: List of tenants
           schema:
-            additionalProperties: true
-            type: object
+            items:
+              $ref: '#/definitions/domain.Tenant'
+            type: array
         "500":
           description: Internal server error
           schema:
             additionalProperties: true
             type: object
-      security:
-      - BearerAuth: []
       summary: Get all tenants
       tags:
       - Tenants
     post:
       consumes:
       - application/json
-      description: Register a new organizational/school in the system (SuperAdmin
-        only).
+      description: Add a new organization to the system
       parameters:
-      - description: Tenant payload
+      - description: Tenant info
         in: body
-        name: request
+        name: tenant
         required: true
         schema:
           $ref: '#/definitions/domain.Tenant'
+      produces:
+      - application/json
       responses:
         "201":
-          description: Tenant created successfully
+          description: Successfully created tenant
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/domain.Tenant'
         "400":
           description: Invalid request body
           schema:
             additionalProperties: true
             type: object
         "409":
-          description: Conflict in tenant creation
+          description: Tenant already exists or database error
           schema:
             additionalProperties: true
             type: object
-      security:
-      - BearerAuth: []
-      summary: Create a tenant
+      summary: Create a new tenant
       tags:
       - Tenants
   /api/v1/tenants/{id}:
     delete:
-      consumes:
-      - application/json
-      description: Perform a soft delete on an organization.
+      description: Delete a tenant by ID
       parameters:
       - description: Tenant ID
         in: path
         name: id
         required: true
         type: integer
-      produces:
-      - application/json
       responses:
-        "200":
-          description: Tenant deleted successfully
+        "204":
+          description: No content - Successfully deleted
+        "500":
+          description: Internal server error
           schema:
             additionalProperties: true
             type: object
-        "400":
-          description: Invalid tenant ID format
-          schema:
-            additionalProperties: true
-            type: object
-        "404":
-          description: Tenant not found
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Delete a tenant
+      summary: Soft delete a tenant
       tags:
       - Tenants
     get:
-      consumes:
-      - application/json
-      description: Fetch information of a specific tenant.
+      description: Retrieve a single organization by its unique identifier
       parameters:
       - description: Tenant ID
         in: path
@@ -985,78 +956,31 @@ paths:
       - application/json
       responses:
         "200":
-          description: Tenant details
+          description: Successfully retrieved tenant
           schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Invalid tenant ID format
-          schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/domain.Tenant'
         "404":
           description: Tenant not found
           schema:
             additionalProperties: true
             type: object
-      security:
-      - BearerAuth: []
-      summary: Get tenant details
-      tags:
-      - Tenants
-    patch:
-      consumes:
-      - application/json
-      description: Partially update specific fields of a tenant.
-      parameters:
-      - description: Tenant ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: Fields to update
-        in: body
-        name: request
-        required: true
-        schema:
-          additionalProperties: true
-          type: object
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Tenant patched successfully
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Invalid request body
-          schema:
-            additionalProperties: true
-            type: object
-        "404":
-          description: Tenant not found
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Patch a tenant
+      summary: Get tenant by ID
       tags:
       - Tenants
     put:
       consumes:
       - application/json
-      description: Completely replace tenant's data.
+      description: Update a tenant by ID with the provided JSON payload and return
+        the updated record.
       parameters:
       - description: Tenant ID
         in: path
         name: id
         required: true
         type: integer
-      - description: Tenant payload
+      - description: Updated tenant information
         in: body
-        name: request
+        name: tenant
         required: true
         schema:
           $ref: '#/definitions/domain.Tenant'
@@ -1064,23 +988,15 @@ paths:
       - application/json
       responses:
         "200":
-          description: Tenant updated successfully
+          description: Successfully updated tenant
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/domain.Tenant'
         "400":
-          description: Invalid request body
+          description: Bad request - Invalid payload or update failed
           schema:
             additionalProperties: true
             type: object
-        "404":
-          description: Tenant not found
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Update a tenant
+      summary: Update entire tenant
       tags:
       - Tenants
   /api/v1/users/me/submissions:
@@ -1162,10 +1078,4 @@ paths:
       summary: Connect to live dashboard WebSocket
       tags:
       - Dashboards
-securityDefinitions:
-  BearerAuth:
-    description: Type "Bearer " followed by a space and JWT token.
-    in: header
-    name: Authorization
-    type: apiKey
 swagger: "2.0"

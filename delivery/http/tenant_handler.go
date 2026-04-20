@@ -3,193 +3,120 @@ package http
 
 // Import necessary libraries.
 import (
-	"strconv"
-	"github.com/casbin/casbin/v2"
-	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
-	"letuan.com/code_demo_backend/delivery/http/middleware"
 	"letuan.com/code_demo_backend/domain"
+	"strconv"
 )
 
-// TenantHandler manages HTTP requests related to tenants.
+// TenantHandler manages incoming API requests and HTTP responses for tenants.
 type TenantHandler struct {
-	TenantUC	domain.TenantUseCase
-	Validate	*validator.Validate
+	Usecase domain.TenantUsecase
 }
 
-// NewTenantHandler initializes routing for tenant operations.
-// It is protected by JWT and Casbin RBAC.
-func NewTenantHandler(app *fiber.App, uc domain.TenantUseCase, val *validator.Validate, enforcer *casbin.Enforcer) {
-	handler := &TenantHandler{
-		TenantUC:	uc,
-		Validate:	val,
-	}
-	// Only SuperAdmin can manage tenants (handled by Casbin).
-	api := app.Group("/api/v1/tenants", middleware.Protected(), middleware.RoleBasedAuth(enforcer))
-	api.Post("/", handler.CreateTenant)
-	api.Get("/", handler.GetAllTenants)
-	api.Get("/:id", handler.GetTenant)
-	api.Put("/:id", handler.UpdateTenant)
-	api.Patch("/:id", handler.PatchTenant)
-	api.Delete("/:id", handler.DeleteTenant)
+// NewTenantHandler registers routes for tenant management.
+func NewTenantHandler(app *fiber.App, us domain.TenantUsecase) {
+	handler := &TenantHandler{Usecase: us}
+	api := app.Group("/api/v1/tenants")
+
+	api.Get("/", handler.GetAll)
+	api.Get("/:id", handler.GetByID)
+	api.Post("/", handler.Create)
+	api.Put("/:id", handler.Update)
+	api.Delete("/:id", handler.Delete)
 }
 
-// CreateTenant creates a new organizational tenant.
-// @Summary Create a tenant
-// @Description Register a new organizational/school in the system (SuperAdmin only).
-// @Tags Tenants
-// @Accept json
-// @Product json
-// @Security BearerAuth
-// @Param request body domain.Tenant true "Tenant payload"
-// @Success 201 {object} map[string]interface{} "Tenant created successfully"
-// @Failure 400 {object} map[string]interface{} "Invalid request body"
-// @Failure 409 {object} map[string]interface{} "Conflict in tenant creation"
-// @Router /api/v1/tenants [post]
-func (h *TenantHandler) CreateTenant(c *fiber.Ctx) error {
-	var tenant domain.Tenant
-	if err := c.BodyParser(&tenant); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
-	}
-	if err := h.Validate.Struct(tenant); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
-	}
-	if err := h.TenantUC.CreateTenant(&tenant); err != nil {
-		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": err.Error()})
-	}
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"message":	"Tenant created successfully",
-		"data":		tenant,
-	})
-}
-
-// GetAllTenants retrieves a list of all active tenants.
+// GetAll retrieves a list of all tenants.
 // @Summary Get all tenants
-// @Description Fetch a list of all organizations/
+// @Description Retrieve a list of all organizations
 // @Tags Tenants
-// @Accept json
 // @Produce json
-// @Security BearerAuth
-// @Success 200 {object} map[string]interface{} "List of tenants"
+// @Success 200 {array} domain.Tenant "List of tenants"
 // @Failure 500 {object} map[string]interface{} "Internal server error"
 // @Router /api/v1/tenants [get]
-func (h *TenantHandler) GetAllTenants(c *fiber.Ctx) error {
-	tenants, err := h.TenantUC.GetAllTenants()
+func (h *TenantHandler) GetAll(c *fiber.Ctx) error {
+	tenants, err := h.Usecase.GetAll(c.Context())
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Internal server error"})
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 	}
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{"data": tenants})
+	return c.JSON(tenants)
 }
 
-// GetTenant fetches a specific tenant by its ID.
-// @Summary Get tenant details
-// @Description Fetch information of a specific tenant.
+// GetByID fetches a specific tenant by its ID.
+// @Summary Get tenant by ID
+// @Description Retrieve a single organization by its unique identifier
 // @Tags Tenants
-// @Accept json
 // @Produce json
-// @Security BearerAuth
 // @Param id path int true "Tenant ID"
-// @Success 200 {object} map[string]interface{} "Tenant details"
-// @Failure 400 {object} map[string]interface{} "Invalid tenant ID format"
+// @Success 200 {object} domain.Tenant "Successfully retrieved tenant"
 // @Failure 404 {object} map[string]interface{} "Tenant not found"
 // @Router /api/v1/tenants/{id} [get]
-func (h *TenantHandler) GetTenant(c *fiber.Ctx) error {
-	id, err := strconv.Atoi(c.Params("id"))
+func (h *TenantHandler) GetByID(c *fiber.Ctx) error {
+	id, _ := strconv.Atoi(c.Params("id"))
+	tenant, err := h.Usecase.GetByID(c.Context(), uint(id))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid tenant ID format"})
+		return c.Status(404).JSON(fiber.Map{"error": "Tenant not found"})
 	}
-	tenant, err := h.TenantUC.GetTenantByID(uint(id))
-	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Tenant not found"})
-	}
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{"data": tenant})
+	return c.JSON(tenant)
 }
 
-// UpdateTenant completely replaces an existing tenant's data.
-// @Summary Update a tenant
-// @Description Completely replace tenant's data.
+// Create registers a new tenant in the system.
+// @Summary Create a new tenant
+// @Description Add a new organization to the system
 // @Tags Tenants
 // @Accept json
 // @Produce json
-// @Security BearerAuth
-// @Param id path int true "Tenant ID"
-// @Param request body domain.Tenant true "Tenant payload"
-// @Success 200 {object} map[string]interface{} "Tenant updated successfully"
+// @Param tenant body domain.Tenant true "Tenant info"
+// @Success 201 {object} domain.Tenant "Successfully created tenant"
 // @Failure 400 {object} map[string]interface{} "Invalid request body"
-// @Failure 404 {object} map[string]interface{} "Tenant not found"
+// @Failure 409 {object} map[string]interface{} "Tenant already exists or database error"
+// @Router /api/v1/tenants [post]
+func (h *TenantHandler) Create(c *fiber.Ctx) error {
+	tenant := new(domain.Tenant)
+	if err := c.BodyParser(tenant); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid request"})
+	}
+	if err := h.Usecase.Create(c.Context(), tenant); err != nil {
+		return c.Status(409).JSON(fiber.Map{"error": "Tenant already exists or database error"})
+	}
+	return c.Status(201).JSON(tenant)
+}
+
+// Update modifies an existing tenant's details.
+// @Summary Update entire tenant
+// @Description Update a tenant by ID with the provided JSON payload and return the updated record.
+// @Tags Tenants
+// @Accept json
+// @Produce json
+// @Param id path int true "Tenant ID"
+// @Param tenant body domain.Tenant true "Updated tenant information"
+// @Success 200 {object} domain.Tenant "Successfully updated tenant"
+// @Failure 400 {object} map[string]interface{} "Bad request - Invalid payload or update failed"
 // @Router /api/v1/tenants/{id} [put]
-func (h *TenantHandler) UpdateTenant(c *fiber.Ctx) error {
-	id, err := strconv.Atoi(c.Params("id"))
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid tenant ID format"})
+func (h *TenantHandler) Update(c *fiber.Ctx) error {
+	id, _ := strconv.Atoi(c.Params("id"))
+	tenant := new(domain.Tenant)
+	if err := c.BodyParser(tenant); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
 	}
-	var tenant domain.Tenant
-	if err := c.BodyParser(&tenant); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	if err := h.Usecase.Update(c.Context(), uint(id), tenant); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
 	}
-	if err := h.Validate.Struct(tenant); err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": err.Error()})
-	}
-	if err := h.TenantUC.UpdateTenant(uint(id), &tenant); err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": err.Error()})
-	}
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"message":	"Tenant updated successfully",
-		"data":		tenant,
-	})
+	updatedTenant, _ := h.Usecase.GetByID(c.Context(), uint(id))
+	return c.JSON(updatedTenant)
 }
 
-// PatchTenant partially updates a tenant based on provided fields.
-// @Summary Patch a tenant
-// @Description Partially update specific fields of a tenant.
+// Delete removes a tenant from the system.
+// @Summary Soft delete a tenant
+// @Description Delete a tenant by ID
 // @Tags Tenants
-// @Accept json
-// @Produce json
-// @Security BearerAuth
 // @Param id path int true "Tenant ID"
-// @Param request body map[string]interface{} true "Fields to update"
-// @Success 200 {object} map[string]interface{} "Tenant patched successfully"
-// @Failure 400 {object} map[string]interface{} "Invalid request body"
-// @Failure 404 {object} map[string]interface{} "Tenant not found"
-// @Router /api/v1/tenants/{id} [patch]
-func (h *TenantHandler) PatchTenant(c *fiber.Ctx) error {
-	id, err := strconv.Atoi(c.Params("id"))
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid tenant ID format"})
-	}
-	var updates map[string]interface{}
-	if err := c.BodyParser(&updates); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
-	}
-	if err := h.TenantUC.PatchTenant(uint(id), updates); err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": err.Error()})
-	}
-	updatedTenant, _ := h.TenantUC.GetTenantByID(uint(id))
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"message":	"Tenant patched successfully",
-		"data":		updatedTenant,
-	})
-}
-
-// DeleteTenant performs a soft delete on a tenant.
-// @Summary Delete a tenant
-// @Description Perform a soft delete on an organization.
-// @Tags Tenants
-// @Accept json
-// @Produce json
-// @Security BearerAuth
-// @Param id path int true "Tenant ID"
-// @Success 200 {object} map[string]interface{} "Tenant deleted successfully"
-// @Failure 400 {object} map[string]interface{} "Invalid tenant ID format"
-// @Failure 404 {object} map[string]interface{} "Tenant not found"
+// @Success 204 "No content - Successfully deleted"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
 // @Router /api/v1/tenants/{id} [delete]
-func (h *TenantHandler) DeleteTenant(c *fiber.Ctx) error {
-	id, err := strconv.Atoi(c.Params("id"))
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid tenant ID format"})
+func (h *TenantHandler) Delete(c *fiber.Ctx) error {
+	id, _ := strconv.Atoi(c.Params("id"))
+	if err := h.Usecase.Delete(c.Context(), uint(id)); err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 	}
-	if err := h.TenantUC.DeleteTenant(uint(id)); err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": err.Error()})
-	}
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "Tenant deleted successfully"})
+	return c.SendStatus(204)
 }

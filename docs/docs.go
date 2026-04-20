@@ -9,14 +9,7 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "contact": {
-            "name": "API support",
-            "email": "hoangletuan031004@gmail.com"
-        },
-        "license": {
-            "name": "MIT",
-            "url": "https://opensource.org/licenses/MIT"
-        },
+        "contact": {},
         "version": "{{.Version}}"
     },
     "host": "{{.Host}}",
@@ -1050,15 +1043,7 @@ const docTemplate = `{
         },
         "/api/v1/tenants": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Fetch a list of all organizations/",
-                "consumes": [
-                    "application/json"
-                ],
+                "description": "Retrieve a list of all organizations",
                 "produces": [
                     "application/json"
                 ],
@@ -1070,8 +1055,10 @@ const docTemplate = `{
                     "200": {
                         "description": "List of tenants",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.Tenant"
+                            }
                         }
                     },
                     "500": {
@@ -1084,23 +1071,21 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Register a new organizational/school in the system (SuperAdmin only).",
+                "description": "Add a new organization to the system",
                 "consumes": [
+                    "application/json"
+                ],
+                "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Tenants"
                 ],
-                "summary": "Create a tenant",
+                "summary": "Create a new tenant",
                 "parameters": [
                     {
-                        "description": "Tenant payload",
-                        "name": "request",
+                        "description": "Tenant info",
+                        "name": "tenant",
                         "in": "body",
                         "required": true,
                         "schema": {
@@ -1110,10 +1095,9 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "Tenant created successfully",
+                        "description": "Successfully created tenant",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/domain.Tenant"
                         }
                     },
                     "400": {
@@ -1124,7 +1108,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Conflict in tenant creation",
+                        "description": "Tenant already exists or database error",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -1135,22 +1119,14 @@ const docTemplate = `{
         },
         "/api/v1/tenants/{id}": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Fetch information of a specific tenant.",
-                "consumes": [
-                    "application/json"
-                ],
+                "description": "Retrieve a single organization by its unique identifier",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Tenants"
                 ],
-                "summary": "Get tenant details",
+                "summary": "Get tenant by ID",
                 "parameters": [
                     {
                         "type": "integer",
@@ -1162,17 +1138,9 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Tenant details",
+                        "description": "Successfully retrieved tenant",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid tenant ID format",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/domain.Tenant"
                         }
                     },
                     "404": {
@@ -1185,12 +1153,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Completely replace tenant's data.",
+                "description": "Update a tenant by ID with the provided JSON payload and return the updated record.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1200,7 +1163,7 @@ const docTemplate = `{
                 "tags": [
                     "Tenants"
                 ],
-                "summary": "Update a tenant",
+                "summary": "Update entire tenant",
                 "parameters": [
                     {
                         "type": "integer",
@@ -1210,8 +1173,8 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Tenant payload",
-                        "name": "request",
+                        "description": "Updated tenant information",
+                        "name": "tenant",
                         "in": "body",
                         "required": true,
                         "schema": {
@@ -1221,21 +1184,13 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Tenant updated successfully",
+                        "description": "Successfully updated tenant",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/domain.Tenant"
                         }
                     },
                     "400": {
-                        "description": "Invalid request body",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "404": {
-                        "description": "Tenant not found",
+                        "description": "Bad request - Invalid payload or update failed",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -1244,22 +1199,11 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Perform a soft delete on an organization.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
+                "description": "Delete a tenant by ID",
                 "tags": [
                     "Tenants"
                 ],
-                "summary": "Delete a tenant",
+                "summary": "Soft delete a tenant",
                 "parameters": [
                     {
                         "type": "integer",
@@ -1270,82 +1214,11 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "Tenant deleted successfully",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
+                    "204": {
+                        "description": "No content - Successfully deleted"
                     },
-                    "400": {
-                        "description": "Invalid tenant ID format",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "404": {
-                        "description": "Tenant not found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            },
-            "patch": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Partially update specific fields of a tenant.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Tenants"
-                ],
-                "summary": "Patch a tenant",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Tenant ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Fields to update",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Tenant patched successfully",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid request body",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "404": {
-                        "description": "Tenant not found",
+                    "500": {
+                        "description": "Internal server error",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -1733,35 +1606,23 @@ const docTemplate = `{
         },
         "domain.Tenant": {
             "type": "object",
-            "required": [
-                "name"
-            ],
             "properties": {
-                "create_at": {
+                "code": {
                     "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
                 },
                 "name": {
-                    "type": "string",
-                    "minLength": 3
-                },
-                "status": {
                     "type": "string"
-                },
-                "tenant_id": {
-                    "type": "integer"
                 },
                 "updated_at": {
                     "type": "string"
                 }
             }
-        }
-    },
-    "securityDefinitions": {
-        "BearerAuth": {
-            "description": "Type \"Bearer \" followed by a space and JWT token.",
-            "type": "apiKey",
-            "name": "Authorization",
-            "in": "header"
         }
     }
 }`
@@ -1773,7 +1634,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/",
 	Schemes:          []string{},
 	Title:            "Assessment Core Engine API",
-	Description:      "This is a multi-tenant assessment and online examination core engine.",
+	Description:      "API for managing multi-tenant assessments",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

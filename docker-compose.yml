@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: root_password_secret
-      MYSQL_DATABASE: training_2026_fe_be_intern_db
+      MYSQL_DATABASE: assessment_core_engine_be_db
       MYSQL_USER: tuan_hl
       MYSQL_PASSWORD: Tuanlehoang@2k4
     ports:

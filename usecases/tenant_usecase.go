@@ -3,72 +3,48 @@ package usecases
 
 // Import necessary libraries.
 import (
-    "errors"
-    "letuan.com/code_demo_backend/domain"
+	"context"
+	"letuan.com/code_demo_backend/domain"
 )
 
-// tenantUseCase implements the domain.TenantUseCase interface.
-type tenantUseCase struct {
-    tenantRepo domain.TenantRepository
+// tenantUsecase implements the business logic for tenant operations.
+type tenantUsecase struct {
+	repo domain.TenantRepository
 }
 
-// NewTenantUseCase creates a new instance of TenantUseCase.
-func NewTenantUseCase(repo domain.TenantRepository) domain.TenantUseCase {
-    return &tenantUseCase{
-        tenantRepo: repo,
-    }
+// NewTenantUsecase initializes the business logic layer for tenants.
+func NewTenantUsecase(repo domain.TenantRepository) domain.TenantUsecase {
+	return &tenantUsecase{repo}
 }
 
-// CreateTenant validates and creates a new tenant.
-func (u *tenantUseCase) CreateTenant(tenant *domain.Tenant) error {
-    // Prevent duplicate IDs if manually provided.
-    existingTenant, _ := u.tenantRepo.GetByID(tenant.ID)
-    if existingTenant != nil {
-        return errors.New("Tenant already exists")
-    }
-    return u.tenantRepo.Create(tenant)
+// GetAll retrieves a list of all available tenants.
+func (u *tenantUsecase) GetAll(ctx context.Context) ([]domain.Tenant, error) {
+	return u.repo.Fetch(ctx)
 }
 
-// GetAllTenants retrieves a list of all active tenants.
-func (u *tenantUseCase) GetAllTenants() ([]domain.Tenant, error) {
-    return u.tenantRepo.GetAll()
+// GetByID fetches a specific tenant by its unique identifier.
+func (u *tenantUsecase) GetByID(ctx context.Context, id uint) (domain.Tenant, error) {
+	return u.repo.GetByID(ctx, id)
 }
 
-// GetTenantByID retrieves specific tenant details using its ID.
-func (u *tenantUseCase) GetTenantByID(id uint) (*domain.Tenant, error) {
-    return u.tenantRepo.GetByID(id)
+// Create validates and registers a new tenant in the system.
+func (u *tenantUsecase) Create(ctx context.Context, tenant *domain.Tenant) error {
+	// Business logic: Check for potential conflicts or validation here.
+	return u.repo.Create(ctx, tenant)
 }
 
-// UpdateTenant entirely replaces the data of an existing tenant.
-func (u *tenantUseCase) UpdateTenant(id uint, tenant *domain.Tenant) error {
-    existingTenant, err := u.tenantRepo.GetByID(id)
-    if err != nil {
-        return errors.New("Tenant not found")
-    }
-    // Secure immutable fields.
-    tenant.ID = existingTenant.ID
-    tenant.CreatedAt = existingTenant.CreatedAt
-    return u.tenantRepo.Update(tenant)
+// Update modifies an existing tenant's details while preserving protected fields like CreatedAt.
+func (u *tenantUsecase) Update(ctx context.Context, id uint, tenant *domain.Tenant) error {
+	existing, err := u.repo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	existing.Name = tenant.Name
+	existing.Code = tenant.Code
+	return u.repo.Update(ctx, &existing)
 }
 
-// PatchTenant applies partial modifications to a tenant safely.
-func (u *tenantUseCase) PatchTenant(id uint, updates map[string]interface{}) error {
-    _, err := u.tenantRepo.GetByID(id)
-    if err != nil {
-        return errors.New("Tenant not found")
-    }
-    // Prevent patching critical fields.
-    delete(updates, "tenant_id")
-    delete(updates, "id")
-    delete(updates, "create_at")
-    return u.tenantRepo.Patch(id, updates)
-}
-
-// DeleteTenant performs a soft deletion on a tenant.
-func (u *tenantUseCase) DeleteTenant(id uint) error {
-    _, err := u.tenantRepo.GetByID(id)
-    if err != nil {
-        return errors.New("Tenant not found")
-    }
-    return u.tenantRepo.Delete(id)
+// Delete removes a tenant from the system based on its ID.
+func (u *tenantUsecase) Delete(ctx context.Context, id uint) error {
+	return u.repo.Delete(ctx, id)
 }
