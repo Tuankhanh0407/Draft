@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-// userUsecase implements the business logic for user operations.
+// userUsecase implements the business logic for managing users.
 type userUsecase struct {
 	repo domain.UserRepository
 }

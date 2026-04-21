@@ -6,107 +6,137 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"github.com/redis/go-redis/v9"
+	"gorm.io/datatypes"
 	"letuan.com/code_demo_backend/domain"
-	"log"
-	"math"
-	"time"
 )
 
-// questionUseCase implements the domain.QuestionUseCase interface.
-type questionUseCase struct {
-	questionRepo	domain.QuestionRepository
-	redisClient 	*redis.Client
+// questionUsecase implements the business logic for managing questions.
+type questionUsecase struct {
+	repo domain.QuestionRepository
 }
 
-// NewQuestionUseCase injects the repository and Redis client.
-func NewQuestionUseCase(repo domain.QuestionRepository, rdb *redis.Client) domain.QuestionUseCase {
-	return &questionUseCase{
-		questionRepo:	repo,
-		redisClient:	rdb,
-	}
+// NewQuestionUsecase initializes the question usecase with its required repository.
+func NewQuestionUsecase(repo domain.QuestionRepository) domain.QuestionUsecase {
+	return &questionUsecase{repo}
 }
 
-// CreateQuestion validates and inserts a single question.
-func (u *questionUseCase) CreateQuestion(question *domain.Question) error {
-	return u.questionRepo.Create(question)
-}
-
-// GetQuestionForClient fetches a question, prioritizing Redis cache with graceful MySQL fallback.
-func (u *questionUseCase) GetQuestionForClient(id uint, tenantID uint) (*domain.Question, error) {
-	ctx := context.Background()
-	cacheKey := fmt.Sprintf("question:%d:%d", tenantID, id)
-	// 1. Attempt to fetch from Redis.
-	cached, err := u.redisClient.Get(ctx, cacheKey).Result()
-	if err == nil {
-		// Cache hit.
-		var q domain.Question
-		json.Unmarshal([]byte(cached), &q)
-		return &q, nil
-	} else if err != redis.Nil {
-		// GRACEFUL FALLBACK: Redis is down or network error occurred.
-		// Instead of returning HTTP 500, we log the error and let the app query MySQL.
-		log.Printf("Warning: Redis cache failed for key %s. Falling back to MySQL. Error: %v\n", cacheKey, err)
-	}
-	// Note: If err == redis.Nil, it is just a cache miss (normal behavior).
-	// 2. Fetch from MySQL (fallback/cache miss).
-	question, err := u.questionRepo.GetByIDAndTenant(id, tenantID)
-	if err != nil {
-		return nil, err // MySQL failed too, return error.
-	}
-	// 3. Strip sensitive correct answers before returning to the student.
-	question.CorrectData = nil
-	// 4. Attempt to populate cache for future requests.
-	// Fire-and-forget logic: Ignore errors so Redis downtime does not affect user experience.
-	go func() {
-		qJSON, _ := json.Marshal(question)
-		u.redisClient.Set(context.Background(), cacheKey, qJSON, 1 * time.Hour)
-	}()
-	return question, nil
-}
-
-// CreateQuestionsBulk processes and imports large arrays of questions efficiently.
-func (u *questionUseCase) CreateQuestionsBulk(questions []domain.Question) error {
-	if len(questions) == 0 {
-		return errors.New("The question list is empty")
-	}
-	batchSize := 100
-	err := u.questionRepo.CreateInBatches(questions, batchSize)
-	if err != nil {
-		return errors.New("Failed to import questions: " + err.Error())
+// validateAST verifies the structural integrity of question content, ensuring that gap nodes match the provided answers.
+func validateAST(req *domain.QuestionRequest) error {
+	if req.Type == "GAP_FILL" {
+		gapCount := 0
+		for _, node := range req.Content.Nodes {
+			if node.Type == "gap" {
+				if node.ID == "" || node.Size <= 0 {
+					return errors.New("Gap node must have a valid 'id' and 'size' > 0")
+				}
+				gapCount++
+			}
+		}
+		if gapCount != len(req.CorrectData) {
+			return errors.New("Number of gap nodes does not match correct_data")
+		}
 	}
 	return nil
 }
 
-// ListQuestions retrieves a paginated and optionally filtered list of questions.
-func (u *questionUseCase) ListQuestions(tenantID uint, page int, limit int, tag string) (*domain.PaginatedResult, error) {
-	if page < 1 {
-		page = 1
+// mapToResponse converts a database entity into a client-safe response, intentionally omitting sensitive fields like CorrectData to prevent cheating.
+func mapToResponse(q domain.Question) domain.QuestionResponse {
+	var content domain.QuestionContent
+	var tags []string
+	_ = json.Unmarshal(q.Content, &content)
+	_ = json.Unmarshal(q.Tags, &tags)
+	return domain.QuestionResponse{
+		ID:			q.ID,
+		Type:		q.Type,
+		Tags:		tags,
+		Content:	content,
+		CreatedAt:	q.CreatedAt,
 	}
-	if limit < 1 || limit > 100 {
-		limit = 10
-	}
+}
+
+// mapToEntity transforms a question request payload into a database-ready entity, serializing JSON fields.
+func mapToEntity(tenantID uint, req *domain.QuestionRequest) (domain.Question, error) {
+	contentBytes, _ := json.Marshal(req.Content)
+	correctBytes, _ := json.Marshal(req.CorrectData)
+	tagsBytes, _ := json.Marshal(req.Tags)
+	return domain.Question{
+		TenantID:		tenantID,
+		Type:			req.Type,
+		Tags:			datatypes.JSON(tagsBytes),
+		Content:		datatypes.JSON(contentBytes),
+		CorrectData: 	datatypes.JSON(correctBytes),
+	}, nil
+}
+
+// GetAll retrieves a paginated and optionally filtered list of safe question responses for a specific tenant.
+func (u *questionUsecase) GetAll(ctx context.Context, tenantID uint, qType, tag string, page, limit int) ([]domain.QuestionResponse, error) {
 	offset := (page - 1) * limit
-	questions, total, err := u.questionRepo.List(tenantID, limit, offset, tag)
+	questions, err := u.repo.Fetch(ctx, tenantID, qType, tag, limit, offset)
 	if err != nil {
 		return nil, err
 	}
-	// Admin might need explanations, but usually we strip sensitive data for standard lists.
-	for i := range questions {
-		questions[i].CorrectData = nil
+	var res []domain.QuestionResponse
+	for _, q := range questions {
+		res = append(res, mapToResponse(q))
 	}
-	totalPages := int(math.Ceil(float64(total) / float64(limit)))
-	meta := domain.PaginationMeta{
-		CurrentPage:	page,
-		PageSize:		limit,
-		TotalItems:		total,
-		TotalPages:		totalPages,
-		HasNextPage:	page < totalPages,
-		HasPrevPage:	page > 1,
+	return res, nil
+}
+
+// GetByID fetches a single question by its ID and ensures it belongs to the specified tenant.
+func (u *questionUsecase) GetByID(ctx context.Context, tenantID, id uint) (domain.QuestionResponse, error) {
+	question, err := u.repo.GetByID(ctx, tenantID, id)
+	if err != nil {
+		return domain.QuestionResponse{}, errors.New("Question not found")
 	}
-	return &domain.PaginatedResult{
-		Data: 			questions,
-		Meta: 			meta,
-	}, nil
+	return mapToResponse(question), nil
+}
+
+// Create validates the payload structure and registers a new question into the system.
+func (u *questionUsecase) Create(ctx context.Context, tenantID uint, req *domain.QuestionRequest) (domain.QuestionResponse, error) {
+	if err := validateAST(req); err != nil {
+		return domain.QuestionResponse{}, err
+	}
+	entity, _ := mapToEntity(tenantID, req)
+	if err := u.repo.Create(ctx, &entity); err != nil {
+		return domain.QuestionResponse{}, err
+	}
+	return mapToResponse(entity), nil
+}
+
+// CreateBulk validates and inserts multiple questions into the database in a single batch.
+func (u *questionUsecase) CreateBulk(ctx context.Context, tenantID uint, reqs []domain.QuestionRequest) error {
+	var entities []domain.Question
+	for _, req := range reqs {
+		if err := validateAST(&req); err != nil {
+			return errors.New("Validation failed for one or more items: " + err.Error())
+		}
+		entity, _ := mapToEntity(tenantID, &req)
+		entities = append(entities, entity)
+	}
+	return u.repo.CreateBulk(ctx, entities)
+}
+
+// Update modifies an existing question after fully validating the new payload data.
+func (u *questionUsecase) Update(ctx context.Context, tenantID, id uint, req *domain.QuestionRequest) (domain.QuestionResponse, error) {
+	if err := validateAST(req); err != nil {
+		return domain.QuestionResponse{}, err
+	}
+	existing, err := u.repo.GetByID(ctx, tenantID, id)
+	if err != nil {
+		return domain.QuestionResponse{}, errors.New("Question not found")
+	}
+	updates, _ := mapToEntity(tenantID, req)
+	existing.Type = updates.Type
+	existing.Tags = updates.Tags
+	existing.Content = updates.Content
+	existing.CorrectData = updates.CorrectData
+	if err := u.repo.Update(ctx, &existing); err != nil {
+		return domain.QuestionResponse{}, err
+	}
+	return mapToResponse(existing), nil
+}
+
+// Delete removes a question from the specified tenant's data.
+func (u *questionUsecase) Delete(ctx context.Context, tenantID, id uint) error {
+	return u.repo.Delete(ctx, tenantID, id)
 }

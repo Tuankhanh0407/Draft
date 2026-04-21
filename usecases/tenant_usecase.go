@@ -7,7 +7,7 @@ import (
 	"letuan.com/code_demo_backend/domain"
 )
 
-// tenantUsecase implements the business logic for tenant operations.
+// tenantUsecase implements the business logic for managing tenants.
 type tenantUsecase struct {
 	repo domain.TenantRepository
 }

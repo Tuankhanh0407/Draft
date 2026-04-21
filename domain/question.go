@@ -3,60 +3,73 @@ package domain
 
 // Import necessary libraries.
 import (
+	"context"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"time"
 )
 
-// Node represents a single element in the AST (abstract syntax tree) for flexible UI rendering.
-type Node struct {
-	Type			string					`json:"type"` // In example: "text", "gap", "image"...
-	Value			string					`json:"value,omitempty"` // Used for "text" nodes.
-	ID				string					`json:"id,omitempty"` // Identifier for interactive nodes like gaps.
-	Size			int						`json:"size,omitempty"` // Determine input width for gaps.
-	Options			map[string]string		`json:"options,omitempty"` // Used for multiple choice or matching options.
+// Question represents a test question in the database.
+type Question struct {
+	ID				uint					`json:"id" gorm:"primaryKey;autoIncrement"`
+	TenantID		uint					`json:"-" gorm:"index:idx_tenant_type;not null"` // Hidden from JSON.
+	Type			string					`json:"type" gorm:"index:idx_tenant_type;size:50;not null"`
+	Tags			datatypes.JSON			`json:"tags" gorm:"type:json"`
+	Content			datatypes.JSON			`json:"content" gorm:"type:json;not null"`
+	CorrectData 	datatypes.JSON			`json:"-" gorm:"type:json;not null"` // Strictly hidden from frontend clients.
+	CreatedAt		time.Time				`json:"created_at"`
+	UpdatedAt		time.Time				`json:"updated_at"`
+	DeletedAt		gorm.DeletedAt			`json:"-" gorm:"index"`
 }
 
-// QuestionContent holds the instructions, media, and parsed AST nodes.
+// ASTNode represents a single element in the question's content array.
+type ASTNode struct {
+	Type			string					`json:"type"`
+	Value			string					`json:"value,omitempty"`
+	ID				string					`json:"id,omitempty"`
+	Size			int						`json:"size,omitempty"`
+}
+
+// QuestionContent represents the structured payload of the question text.
 type QuestionContent struct {
 	Instruction		string					`json:"instruction"`
 	MediaURL		string					`json:"media_url,omitempty"`
-	Nodes			[]Node					`json:"nodes"`
+	Nodes			[]ASTNode				`json:"nodes"`
 }
 
-// Question represents the universal model for an assessment question.
-type Question struct {
-	ID				uint					`json:"question_id" gorm:"primaryKey;autoIncrement"`
-	TenantID		uint					`json:"tenant_id" gorm:"not null;index" validate:"required"`
-	Type			string					`json:"question_type" gorm:"type:varchar(20);not null" validate:"required"` // In example: "GAP_FILL".
-	Content			QuestionContent			`json:"content" gorm:"type:json;serializer:json" validate:"required"` // Auto-converted to JSON in MySQL.
-	CorrectData		map[string][]string		`json:"correct_data,omitempty" gorm:"type:json;serializer:json"` // Hidden in client responses.
-	Tags			[]string				`json:"tags,omitempty" gorm:"type:json;serializer:json"` // Array of tags for categorization/filtering.
-	Explanation		string					`json:"explanation,omitempty" gorm:"type:text"`
+// QuestionRequest is the payload expected from the frontend when creating or updating.
+type QuestionRequest struct {
+	Type			string					`json:"type" validate:"required"`
+	Tags			[]string				`json:"tags"`
+	Content			QuestionContent			`json:"content" validate:"required"`
+	CorrectData		map[string]interface{}	`json:"correct_data" validate:"required"`
+}
+
+// QuestionResponse is the safe payload returned to the frontend (anti-cheat).
+type QuestionResponse struct {
+	ID				uint					`json:"id"`
+	Type			string					`json:"type"`
+	Tags			[]string				`json:"tags"`
+	Content			QuestionContent			`json:"content"`
 	CreatedAt		time.Time				`json:"created_at"`
-	UpdatedAt		time.Time				`json:"updated_at"`
-	DeletedAt		gorm.DeletedAt			`json:"-" gorm:"index"` // Soft delete.
 }
 
-// QuestionRepository defines database operations for a question.
+// QuestionRepository defines data access methods for questions.
 type QuestionRepository interface {
-	// Create inserts a single question into the database.
-	Create(question *Question) error
-	// GetByIDAndTenant fetches a specific question ensuring tenant isolation.
-	GetByIDAndTenant(id uint, tenantID uint) (*Question, error)
-	// List retrieves a paginated array of questions, optionally filtered by a tag.
-	List(tenantID uint, limit int, offset int, tag string) ([]Question, int64, error)
-	// CreateInBatches inserts multiple questions simultaneously to optimize database performance.
-	CreateInBatches(questions []Question, batchSize int) error
+	Fetch(ctx context.Context, tenantID uint, qType, tag string, limit, offset int) ([]Question, error)
+	GetByID(ctx context.Context, tenantID, id uint) (Question, error)
+	Create(ctx context.Context, question *Question) error
+	CreateBulk(ctx context.Context, questions []Question) error
+	Update(ctx context.Context, question *Question) error
+	Delete(ctx context.Context, tenantID, id uint) error
 }
 
-// QuestionUseCase defines business logic for questions.
-type QuestionUseCase interface {
-	// CreateQuestion validates and processes a new question.
-	CreateQuestion(question *Question) error
-	// GetQuestionForClient fetches a question but strips out sensitive correct answers and explanations.
-	GetQuestionForClient(id uint, tenantID uint) (*Question, error)
-	// ListQuestions handles pagination logic and formatting for question lists.
-	ListQuestions(tenantID uint, page int, limit int, tag string) (*PaginatedResult, error)
-	// CreateQuestionsBulk validates and imports an array of questions in one transaction.
-	CreateQuestionsBulk(questions []Question) error
+// QuestionUsecase defines business logic for question management.
+type QuestionUsecase interface {
+	GetAll(ctx context.Context, tenantID uint, qType, tag string, page, limit int) ([]QuestionResponse, error)
+	GetByID(ctx context.Context, tenantID, id uint) (QuestionResponse, error)
+	Create(ctx context.Context, tenantID uint, req *QuestionRequest) (QuestionResponse, error)
+	CreateBulk(ctx context.Context, tenantID uint, reqs []QuestionRequest) error
+	Update(ctx context.Context, tenantID, id uint, req *QuestionRequest) (QuestionResponse, error)
+	Delete(ctx context.Context, tenantID, id uint) error
 }

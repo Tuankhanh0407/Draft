@@ -19,6 +19,9 @@ import (
 // @title Assessment Core Engine API
 // @version 1.0
 // @description API for managing multi-tenant assessments
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 // @host localhost:8080
 // @BasePath /
 func main() {
@@ -29,19 +32,23 @@ func main() {
         log.Fatal("Failed to connect to database")
     }
     // 2. Auto migrate schema.
-    db.AutoMigrate(&domain.Tenant{}, &domain.User{})
+    db.AutoMigrate(&domain.Tenant{}, &domain.User{}, &domain.Question{})
     app := fiber.New()
     // 3. Swagger route.
     app.Get("/swagger/*", swagger.HandlerDefault)
     // 4. Dependency injection.
-    // 4.1. Tenant.
+    // 4.1. Tenants.
     tenantRepo := repository.NewMysqlTenantRepository(db)
     tenantUsecase := usecases.NewTenantUsecase(tenantRepo)
     http.NewTenantHandler(app, tenantUsecase)
-    // 4.2. Auth/User.
+    // 4.2. Auth.
     userRepo := repository.NewMysqlUserRepository(db)
     userUsecase := usecases.NewUserUsecase(userRepo)
     http.NewUserHandler(app, userUsecase)
+    // 4.3. Questions (protected).
+    questionRepo := repository.NewMysqlQuestionRepository(db)
+    questionUsecase := usecases.NewQuestionUsecase(questionRepo)
+    http.NewQuestionHandler(app, questionUsecase)
     // 5. Start server.
     log.Fatal(app.Listen(":8080"))
 }

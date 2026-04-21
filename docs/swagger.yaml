@@ -1,5 +1,15 @@
-basePath: /
 definitions:
+  domain.ASTNode:
+    properties:
+      id:
+        type: string
+      size:
+        type: integer
+      type:
+        type: string
+      value:
+        type: string
+    type: object
   domain.LoginRequest:
     properties:
       email:
@@ -19,6 +29,50 @@ definitions:
         type: string
       user:
         $ref: '#/definitions/domain.User'
+    type: object
+  domain.QuestionContent:
+    properties:
+      instruction:
+        type: string
+      media_url:
+        type: string
+      nodes:
+        items:
+          $ref: '#/definitions/domain.ASTNode'
+        type: array
+    type: object
+  domain.QuestionRequest:
+    properties:
+      content:
+        $ref: '#/definitions/domain.QuestionContent'
+      correct_data:
+        additionalProperties: true
+        type: object
+      tags:
+        items:
+          type: string
+        type: array
+      type:
+        type: string
+    required:
+    - content
+    - correct_data
+    - type
+    type: object
+  domain.QuestionResponse:
+    properties:
+      content:
+        $ref: '#/definitions/domain.QuestionContent'
+      created_at:
+        type: string
+      id:
+        type: integer
+      tags:
+        items:
+          type: string
+        type: array
+      type:
+        type: string
     type: object
   domain.RegisterRequest:
     properties:
@@ -64,7 +118,6 @@ definitions:
       updated_at:
         type: string
     type: object
-host: localhost:8080
 info:
   contact: {}
   description: API for managing multi-tenant assessments
@@ -137,6 +190,255 @@ paths:
       summary: Register a new user
       tags:
       - Authentication
+  /api/v1/questions:
+    get:
+      description: Fetch questions belonging to the tenant, exclude correct answers
+        depending on logic
+      parameters:
+      - description: Filter by Type
+        in: query
+        name: type
+        type: string
+      - description: Filter by Tag
+        in: query
+        name: tag
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully retrieved list
+          schema:
+            items:
+              $ref: '#/definitions/domain.QuestionResponse'
+            type: array
+        "401":
+          description: 'Unauthorized: Missing or invalid token'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List questions
+      tags:
+      - Questions
+    post:
+      consumes:
+      - application/json
+      description: Add a new abstract syntax tree (AST) question (teacher/admin only)
+      parameters:
+      - description: Question payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/domain.QuestionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Successfully created
+          schema:
+            $ref: '#/definitions/domain.QuestionResponse'
+        "400":
+          description: 'Bad request: Invalid payload'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: 'Forbidden: Insufficient role permissions'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create a question
+      tags:
+      - Questions
+  /api/v1/questions/{id}:
+    delete:
+      description: Remove a question by ID
+      parameters:
+      - description: Question ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: 'No content: Successfully deleted'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete question
+      tags:
+      - Questions
+    get:
+      description: Retrieve a single question's details
+      parameters:
+      - description: Question ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully retrieved
+          schema:
+            $ref: '#/definitions/domain.QuestionResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: 'Not found: Question does not exist'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get question by ID
+      tags:
+      - Questions
+    put:
+      consumes:
+      - application/json
+      description: Modify an existing question's details by ID
+      parameters:
+      - description: Question ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Question payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/domain.QuestionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully updated
+          schema:
+            $ref: '#/definitions/domain.QuestionResponse'
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update question
+      tags:
+      - Questions
+  /api/v1/questions/bulk:
+    post:
+      consumes:
+      - application/json
+      description: Upload an array of questions simultaneously
+      parameters:
+      - description: Array of questions
+        in: body
+        name: request
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/domain.QuestionRequest'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            type: string
+        "400":
+          description: Bad request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Bulk insert questions
+      tags:
+      - Questions
   /api/v1/tenants:
     get:
       description: Retrieve a list of all organizations
@@ -291,4 +593,9 @@ paths:
       summary: Connect to live dashboard WebSocket
       tags:
       - Dashboards
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

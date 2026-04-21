@@ -2,149 +2,176 @@
 package http
 
 // Import necessary libraries.
-// import (
-// 	"fmt"
-// 	"github.com/casbin/casbin/v2"
-// 	"github.com/gofiber/fiber/v2"
-// 	"github.com/go-playground/validator/v10"
-// 	"letuan.com/code_demo_backend/delivery/http/middleware"
-// 	"letuan.com/code_demo_backend/domain"
-// 	"strconv"
-// )
+import (
+	"github.com/gofiber/fiber/v2"
+	"letuan.com/code_demo_backend/delivery/http/middleware"
+	"letuan.com/code_demo_backend/domain"
+	"strconv"
+)
 
-// // QuestionHandler manages API operations for questions.
-// type QuestionHandler struct {
-// 	QuestionUC	domain.QuestionUseCase
-// 	Validate	*validator.Validate
-// }
+// QuestionHandler manages incoming API requests and HTTP responses for questions.
+type QuestionHandler struct {
+	Usecase domain.QuestionUsecase
+}
 
-// // NewQuestionHandler configures routing for question endpoints protected by Casbin.
-// func NewQuestionHandler(app *fiber.App, uc domain.QuestionUseCase, val *validator.Validate, enforcer *casbin.Enforcer) {
-// 	handler := &QuestionHandler{
-// 		QuestionUC: uc,
-// 		Validate:	val,
-// 	}
-// 	api := app.Group("/api/v1/questions", middleware.Protected(), middleware.RoleBasedAuth(enforcer))
-// 	api.Post("/bulk", handler.CreateQuestionsBulk)
-// 	api.Post("/", handler.CreateQuestion)
-// 	api.Get("/", handler.ListQuestions)
-// 	api.Get("/:id", handler.GetQuestion)
-// }
+// NewQuestionHandler registers protected routes for question management.
+func NewQuestionHandler(app *fiber.App, us domain.QuestionUsecase) {
+	handler := &QuestionHandler{Usecase: us}
+	// Apply authentication and role-based access control (RBAC) middleware to this group.
+	api := app.Group("/api/v1/questions", middleware.AuthProtected(), middleware.RoleProtected("teacher", "admin"))
+	
+	api.Get("/", handler.GetAll)
+	api.Get("/:id", handler.GetByID)
+	api.Post("/", handler.Create)
+	api.Post("/bulk", handler.CreateBulk)
+	api.Put("/:id", handler.Update)
+	api.Delete("/:id", handler.Delete)
+}
 
-// // CreateQuestionsBulk processes mass-import of questions.
-// // @Summary Bulk create questions
-// // @Description Import multiple questions simultaneously.
-// // @Tags Questions
-// // @Accept json
-// // @Produce json
-// // @Security BearerAuth
-// // @Param request body []domain.Question true "Array of questions"
-// // @Success 201 {object} map[string]interface{} "Questions imported successfully"
-// // @Failure 400 {object} map[string]interface{} "Invalid request body"
-// // @Failure 500 {object} map[string]interface{} "Internal server error"
-// // @Router /api/v1/questions/bulk [post]
-// func (h *QuestionHandler) CreateQuestionsBulk(c *fiber.Ctx) error {
-// 	var questions []domain.Question
-// 	if err := c.BodyParser(&questions); err != nil {
-// 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body. Expected an array of questions"})
-// 	}
-// 	tenantID, ok := c.Locals("tenant_id").(uint)
-// 	if !ok || tenantID == 0 {
-// 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized access"})
-// 	}
-// 	// Validate each question and force tenant isolation.
-// 	for i := range questions {
-// 		questions[i].TenantID = tenantID
-// 		if err := h.Validate.Struct(&questions[i]); err != nil {
-// 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-// 				"error": fmt.Sprintf("Validation failed for question at index %d: %v", i, err),
-// 			})
-// 		}
-// 	}
-// 	if err := h.QuestionUC.CreateQuestionsBulk(questions); err != nil {
-// 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
-// 	}
-// 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-// 		"message": fmt.Sprintf("Successfully imported %d questions", len(questions)),
-// 	})
-// }
+// GetAll retrieves a paginated list of questions.
+// @Summary List questions
+// @Description Fetch questions belonging to the tenant, exclude correct answers depending on logic
+// @Tags Questions
+// @Security BearerAuth
+// @Produce json
+// @Param type query string false "Filter by Type"
+// @Param tag query string false "Filter by Tag"
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Items per page" default(10)
+// @Success 200 {array} domain.QuestionResponse "Successfully retrieved list"
+// @Failure 401 {object} map[string]string "Unauthorized: Missing or invalid token"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /api/v1/questions [get]
+func (h *QuestionHandler) GetAll(c *fiber.Ctx) error {
+	tenantID := uint(c.Locals("tenant_id").(float64)) // JWT claims are parsed as float64.
+	qType := c.Query("type")
+	tag := c.Query("tag")
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+	res, err := h.Usecase.GetAll(c.Context(), tenantID, qType, tag, page, limit)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.JSON(res)
+}
 
-// // CreateQuestion adds a single question.
-// // @Summary Create a single question
-// // @Description Add a new question to the bank.
-// // @Tags Questions
-// // @Accept json
-// // @Produce json
-// // @Security BearerAuth
-// // @Param request body domain.Question true "Question payload"
-// // @Success 201 {object} map[string]interface{} "Question created successfully"
-// // @Failure 400 {object} map[string]interface{} "Invalid request body"
-// // @Failure 409 {object} map[string]interface{} "Conflict in creation"
-// // @Router /api/v1/questions [post]
-// func (h *QuestionHandler) CreateQuestion(c *fiber.Ctx) error {
-// 	var question domain.Question
-// 	if err := c.BodyParser(&question); err != nil {
-// 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
-// 	}
-// 	question.TenantID = c.Locals("tenant_id").(uint)
-// 	if err := h.Validate.Struct(question); err != nil {
-// 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
-// 	}
-// 	if err := h.QuestionUC.CreateQuestion(&question); err != nil {
-// 		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": err.Error()})
-// 	}
-// 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-// 		"message":	"Question created successfully",
-// 		"data":		question,
-// 	})
-// }
+// Create adds a new question to the system.
+// @Summary Create a question
+// @Description Add a new abstract syntax tree (AST) question (teacher/admin only)
+// @Tags Questions
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param request body domain.QuestionRequest true "Question payload"
+// @Success 201 {object} domain.QuestionResponse "Successfully created"
+// @Failure 400 {object} map[string]string "Bad request: Invalid payload"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Forbidden: Insufficient role permissions"
+// @Router /api/v1/questions [post]
+func (h *QuestionHandler) Create(c *fiber.Ctx) error {
+	tenantID := uint(c.Locals("tenant_id").(float64))
+	var req domain.QuestionRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+	res, err := h.Usecase.Create(c.Context(), tenantID, &req)
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.Status(201).JSON(res)
+}
 
-// // GetQuestion fetches a specific question by ID, stripped of sensitive answers.
-// // @Summary Get question details
-// // @Description Retrieve a specific question (correct answers are stripped for clients).
-// // @Tags Questions
-// // @Accept json
-// // @Produce json
-// // @Security BearerAuth
-// // @Param id path int true "Question ID"
-// // @Success 200 {object} map[string]interface{} "Question details"
-// // @Failure 400 {object} map[string]interface{} "Invalid question ID format"
-// // @Failure 404 {object} map[string]interface{} "Question not found"
-// // @Router /api/v1/questions/{id} [get]
-// func (h *QuestionHandler) GetQuestion(c *fiber.Ctx) error {
-// 	id, err := strconv.Atoi(c.Params("id"))
-// 	if err != nil {
-// 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid question ID format"})
-// 	}
-// 	tenantID := c.Locals("tenant_id").(uint)
-// 	question, err := h.QuestionUC.GetQuestionForClient(uint(id), tenantID)
-// 	if err != nil {
-// 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": err.Error()})
-// 	}
-// 	return c.Status(fiber.StatusOK).JSON(fiber.Map{"data": question})
-// }
+// CreateBulk inserts multiple questions at once.
+// @Summary Bulk insert questions
+// @Description Upload an array of questions simultaneously
+// @Tags Questions
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param request body []domain.QuestionRequest true "Array of questions"
+// @Success 201 {string} string "Created"
+// @Failure 400 {object} map[string]string "Bad request"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Forbidden"
+// @Router /api/v1/questions/bulk [post]
+func (h *QuestionHandler) CreateBulk(c *fiber.Ctx) error {
+	tenantID := uint(c.Locals("tenant_id").(float64))
+	var reqs []domain.QuestionRequest
+	if err := c.BodyParser(&reqs); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+	if err := h.Usecase.CreateBulk(c.Context(), tenantID, reqs); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.SendStatus(201)
+}
 
-// // ListQuestions provides a paginated list of questions, filterable by tags.
-// // @Summary List all questions
-// // @Description Fetch a paginated list of questions, with optional tag filtering.
-// // @Tags Questions
-// // @Accept json
-// // @Produce json
-// // @Security BearerAuth
-// // @Param page query int false "Page number" default(1)
-// // @Param limit query int false "Items per page" default(10)
-// // @Param tags query string false "Filter by tags (comma separated)"
-// // @Success 200 {object} map[string]interface{} "List of questions"
-// // @Failure 500 {object} map[string]interface{} "Internal server error"
-// // @Router /api/v1/questions [get]
-// func (h *QuestionHandler) ListQuestions(c *fiber.Ctx) error {
-// 	tenantID := c.Locals("tenant_id").(uint)
-// 	page := c.QueryInt("page", 1)
-// 	limit := c.QueryInt("limit", 10)
-// 	tag := c.Query("tags", "")
-// 	result, err := h.QuestionUC.ListQuestions(tenantID, page, limit, tag)
-// 	if err != nil {
-// 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch questions"})
-// 	}
-// 	return c.Status(fiber.StatusOK).JSON(result)
-// }
+// GetByID fetches a specific question by its ID.
+// @Summary Get question by ID
+// @Description Retrieve a single question's details
+// @Tags Questions
+// @Security BearerAuth
+// @Produce json
+// @Param id path int true "Question ID"
+// @Success 200 {object} domain.QuestionResponse "Successfully retrieved"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 404 {object} map[string]string "Not found: Question does not exist"
+// @Router /api/v1/questions/{id} [get]
+func (h *QuestionHandler) GetByID(c *fiber.Ctx) error {
+	tenantID := uint(c.Locals("tenant_id").(float64))
+	id, _ := strconv.Atoi(c.Params("id"))
+	res, err := h.Usecase.GetByID(c.Context(), tenantID, uint(id))
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.JSON(res)
+}
+
+// Update modifies an existing question.
+// @Summary Update question
+// @Description Modify an existing question's details by ID
+// @Tags Questions
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path int true "Question ID"
+// @Param request body domain.QuestionRequest true "Question payload"
+// @Success 200 {object} domain.QuestionResponse "Successfully updated"
+// @Failure 400 {object} map[string]string "Bad request"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Forbidden"
+// @Router /api/v1/questions/{id} [put]
+func (h *QuestionHandler) Update(c *fiber.Ctx) error {
+	tenantID := uint(c.Locals("tenant_id").(float64))
+	id, _ := strconv.Atoi(c.Params("id"))
+	var req domain.QuestionRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+	res, err := h.Usecase.Update(c.Context(), tenantID, uint(id), &req)
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.JSON(res)
+}
+
+// Delete removes a question from the system.
+// @Summary Delete question
+// @Description Remove a question by ID
+// @Tags Questions
+// @Security BearerAuth
+// @Produce json
+// @Param id path int true "Question ID"
+// @Success 204 "No content: Successfully deleted"
+// @Failure 401 {object} map[string]string "Unauthorized"
+// @Failure 403 {object} map[string]string "Forbidden"
+// @Failure 500 {object} map[string]string "Internal server error"
+// @Router /api/v1/questions/{id} [delete]
+func (h *QuestionHandler) Delete(c *fiber.Ctx) error {
+	tenantID := uint(c.Locals("tenant_id").(float64))
+	id, _ := strconv.Atoi(c.Params("id"))
+	if err := h.Usecase.Delete(c.Context(), tenantID, uint(id)); err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.SendStatus(204)
+}
