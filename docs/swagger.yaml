@@ -124,6 +124,32 @@ info:
   title: Assessment Core Engine API
   version: "1.0"
 paths:
+  /api/v1/account:
+    delete:
+      description: Allow a logged-in user to (soft) delete their own account. It requires
+        a valid JWT token.
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: 'No content: Account successfully deleted'
+        "401":
+          description: 'Unauthorized: Missing or invalid token'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: 'Internal server error: Failed to delete account'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete current user account.
+      tags:
+      - Account
   /api/v1/auth/login:
     post:
       consumes:

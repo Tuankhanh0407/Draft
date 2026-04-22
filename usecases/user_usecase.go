@@ -102,3 +102,8 @@ func (u *userUsecase) Login(ctx context.Context, req *domain.LoginRequest) (doma
 		User:	user,
 	}, nil
 }
+
+// DeleteAccount handles the business logic for users deleting their own accounts.
+func (u *userUsecase) DeleteAccount(ctx context.Context, tenantID, userID uint) error {
+	return u.repo.DeleteAccount(ctx, tenantID, userID)
+}

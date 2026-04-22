@@ -20,20 +20,23 @@ func NewQuestionUsecase(repo domain.QuestionRepository) domain.QuestionUsecase {
 	return &questionUsecase{repo}
 }
 
-// validateAST verifies the structural integrity of question content, ensuring that gap nodes match the provided answers.
+// validateAST checks the structural integrity and strict type constraints.
 func validateAST(req *domain.QuestionRequest) error {
-	if req.Type == "GAP_FILL" {
+	if req.Type != domain.TypeGapFilling && req.Type != domain.TypeMultipleChoice && req.Type != domain.TypeMatching {
+		return errors.New("Invalid question type. Strictly allowed: GAP_FILLING, MULTIPLE_CHOICE, MATCHING")
+	}
+	if req.Type == domain.TypeGapFilling {
 		gapCount := 0
 		for _, node := range req.Content.Nodes {
 			if node.Type == "gap" {
 				if node.ID == "" || node.Size <= 0 {
-					return errors.New("Gap node must have a valid 'id' and 'size' > 0")
+					return errors.New("Gap node must have a valid 'id' and 'size' is greater than 0")
 				}
 				gapCount++
 			}
 		}
 		if gapCount != len(req.CorrectData) {
-			return errors.New("Number of gap nodes does not match correct_data")
+			return errors.New("Number of gap nodes does not match correct_data length")
 		}
 	}
 	return nil

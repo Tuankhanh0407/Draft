@@ -9,6 +9,13 @@ import (
 	"time"
 )
 
+// Constants for strictly allowed question types.
+const (
+	TypeGapFilling = "GAP_FILLING"
+	TypeMultipleChoice = "MULTIPLE_CHOICE"
+	TypeMatching = "MATCHING"
+)
+
 // Question represents a test question in the database.
 type Question struct {
 	ID				uint					`json:"id" gorm:"primaryKey;autoIncrement"`

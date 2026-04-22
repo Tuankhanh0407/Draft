@@ -4,6 +4,7 @@ package domain
 // Import necessary libraries.
 import (
 	"context"
+	"gorm.io/gorm"
 	"time"
 )
 
@@ -17,6 +18,7 @@ type User struct {
 	Role		string			`json:"role" gorm:"size:50;default:'student'"`
 	CreatedAt	time.Time		`json:"created_at"`
 	UpdatedAt	time.Time		`json:"updated_at"`
+	DeletedAt	gorm.DeletedAt	`json:"-" gorm:"index"`
 }
 
 // RegisterRequest represents the payload for user registration.
@@ -44,10 +46,12 @@ type LoginResponse struct {
 type UserRepository interface {
 	Create(ctx context.Context, user *User) error
 	GetByEmailAndTenant(ctx context.Context, email string, tenantID uint) (User, error)
+	DeleteAccount(ctx context.Context, tenantID, userID uint) error
 }
 
 // UserUsecase defines the business logic for user authentication.
 type UserUsecase interface {
 	Register(ctx context.Context, req *RegisterRequest) (User, error)
 	Login(ctx context.Context, req *LoginRequest) (LoginResponse, error)
+	DeleteAccount(ctx context.Context, tenantID, userID uint) error
 }

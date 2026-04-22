@@ -31,3 +31,9 @@ func (r *mysqlUserRepository) GetByEmailAndTenant(ctx context.Context, email str
 	err := r.db.WithContext(ctx).Where("email = ? AND tenant_id = ?", email, tenantID).First(&user).Error
 	return user, err
 }
+
+// DeleteAccount performs a soft delete on a specific user.
+// SQL: UPDATE users SET deleted_at = NOW() WHERE id = ? AND tenant_id = ?;
+func (r *mysqlUserRepository) DeleteAccount(ctx context.Context, tenantID, userID uint) error {
+	return r.db.WithContext(ctx).Where("tenant_id = ?", tenantID).Delete(&domain.User{}, userID).Error
+}
