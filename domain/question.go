@@ -11,7 +11,7 @@ import (
 
 // Constants for strictly allowed question types.
 const (
-	TypeGapFilling = "GAP_FILLING"
+	TypeGapFilling = "GAP_FILL"
 	TypeMultipleChoice = "MULTIPLE_CHOICE"
 	TypeMatching = "MATCHING"
 )
