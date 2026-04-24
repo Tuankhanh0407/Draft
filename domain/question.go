@@ -58,6 +58,7 @@ type QuestionResponse struct {
 	Type			string					`json:"type"`
 	Tags			[]string				`json:"tags"`
 	Content			QuestionContent			`json:"content"`
+	CorrectData		map[string]interface{}	`json:"correct_data,omitempty"`
 	CreatedAt		time.Time				`json:"created_at"`
 }
 

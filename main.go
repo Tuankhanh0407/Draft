@@ -5,6 +5,7 @@ package main // Package main is the entry point of the Assessment Core Engine ap
 import (
 	"github.com/gofiber/fiber/v2"
     "github.com/gofiber/swagger"
+    "github.com/redis/go-redis/v9"
     "gorm.io/driver/mysql"
     "gorm.io/gorm"
     "letuan.com/code_demo_backend/delivery/http"
@@ -25,30 +26,46 @@ import (
 // @host localhost:8080
 // @BasePath /
 func main() {
-    // 1. Database connection setup.
+    // 1. MySQL connection.
     dsn := os.Getenv("DB_DSN")
     db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
     if err != nil {
-        log.Fatal("Failed to connect to database")
+        log.Fatal("Failed to connect to MySQL")
     }
-    // 2. Auto migrate schema.
-    db.AutoMigrate(&domain.Tenant{}, &domain.User{}, &domain.Question{})
+    // 2. Redis connection.
+    redisAddr := os.Getenv("REDIS_ADDR")
+    rdb := redis.NewClient(&redis.Options{
+        Addr: redisAddr,
+    })
+    // 3. Auto migrate schema.
+    db.AutoMigrate(
+        &domain.Tenant{},
+        &domain.User{},
+        &domain.Question{},
+        &domain.Exam{},
+        &domain.ExamQuestion{},
+        &domain.Submission{},
+    )
     app := fiber.New()
-    // 3. Swagger route.
+    // 4. Swagger route.
     app.Get("/swagger/*", swagger.HandlerDefault)
-    // 4. Dependency injection.
-    // 4.1. Tenants.
+    // 5. Dependency injection.
+    // 5.1. Tenants.
     tenantRepo := repository.NewMysqlTenantRepository(db)
     tenantUsecase := usecases.NewTenantUsecase(tenantRepo)
     http.NewTenantHandler(app, tenantUsecase)
-    // 4.2. Auth.
+    // 5.2. Auth.
     userRepo := repository.NewMysqlUserRepository(db)
     userUsecase := usecases.NewUserUsecase(userRepo)
     http.NewUserHandler(app, userUsecase)
-    // 4.3. Questions (protected).
+    // 5.3. Questions (protected).
     questionRepo := repository.NewMysqlQuestionRepository(db)
     questionUsecase := usecases.NewQuestionUsecase(questionRepo)
     http.NewQuestionHandler(app, questionUsecase)
-    // 5. Start server.
+    // 5.4. Exams (protected).
+    examRepo := repository.NewMysqlExamRepository(db)
+    examUsecase := usecases.NewExamUsecase(examRepo, rdb)
+    http.NewExamHandler(app, examUsecase)
+    // 6. Start server.
     log.Fatal(app.Listen(":8080"))
 }

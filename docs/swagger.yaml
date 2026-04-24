@@ -10,6 +10,47 @@ definitions:
       value:
         type: string
     type: object
+  domain.AnalyticsResponse:
+    properties:
+      average_score:
+        type: number
+      exam_id:
+        type: integer
+      total_submissions:
+        type: integer
+    type: object
+  domain.ExamRequest:
+    properties:
+      duration:
+        minimum: 1
+        type: integer
+      question_ids:
+        items:
+          type: integer
+        minItems: 10
+        type: array
+      title:
+        type: string
+    required:
+    - duration
+    - question_ids
+    - title
+    type: object
+  domain.ExamResponse:
+    properties:
+      created_at:
+        type: string
+      duration:
+        type: integer
+      id:
+        type: integer
+      questions:
+        items:
+          $ref: '#/definitions/domain.QuestionResponse'
+        type: array
+      title:
+        type: string
+    type: object
   domain.LoginRequest:
     properties:
       email:
@@ -63,6 +104,9 @@ definitions:
     properties:
       content:
         $ref: '#/definitions/domain.QuestionContent'
+      correct_data:
+        additionalProperties: true
+        type: object
       created_at:
         type: string
       id:
@@ -216,6 +260,224 @@ paths:
       summary: Register a new user
       tags:
       - Authentication
+  /api/v1/exams:
+    get:
+      description: Retrieve a list of exams with pagination support
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of exams
+          schema:
+            items:
+              $ref: '#/definitions/domain.ExamResponse'
+            type: array
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List exams
+      tags:
+      - Exams
+    post:
+      consumes:
+      - application/json
+      description: Add a new exam to the system under the current tenant
+      parameters:
+      - description: Exam payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/domain.ExamRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Successfully created exam
+          schema:
+            $ref: '#/definitions/domain.ExamResponse'
+        "400":
+          description: 'Bad request: Invalid payload'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: 'Conflict: Exam data conflicts'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "422":
+          description: 'Unprocessable entity: Validation failed'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create an exam
+      tags:
+      - Exams
+  /api/v1/exams/{id}:
+    delete:
+      description: Delete an exam by ID
+      parameters:
+      - description: Exam ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: 'No content: Successfully deleted'
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete an exam
+      tags:
+      - Exams
+    get:
+      description: Teachers get correct answers, students get cached sanitized versions
+      parameters:
+      - description: Exam ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Exam details
+          schema:
+            $ref: '#/definitions/domain.ExamResponse'
+        "404":
+          description: Exam not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get exam details
+      tags:
+      - Exams
+    put:
+      consumes:
+      - application/json
+      description: Update an exam's details by its ID
+      parameters:
+      - description: Exam ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Exam payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/domain.ExamRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successfully updated exam
+          schema:
+            $ref: '#/definitions/domain.ExamResponse'
+        "400":
+          description: 'Bad request: Invalid payload'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "422":
+          description: Unprocessable entity
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update an exam
+      tags:
+      - Exams
+  /api/v1/exams/{id}/analytics:
+    get:
+      description: 'Retrieve analytics data for an exam (in example: average score,
+        completion rate).'
+      parameters:
+      - description: Exam ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Analytics data
+          schema:
+            $ref: '#/definitions/domain.AnalyticsResponse'
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get exam analytics
+      tags:
+      - Exams
   /api/v1/questions:
     get:
       description: Fetch questions belonging to the tenant, exclude correct answers
@@ -597,28 +859,6 @@ paths:
       summary: Update entire tenant
       tags:
       - Tenants
-  /ws/v1/exams/{id}/live:
-    get:
-      description: Upgrade HTTP connection to WebSocket to receive real-time submission
-        events (WS client required, not testable via Swagger UI directly).
-      parameters:
-      - description: Exam ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      responses:
-        "101":
-          description: Switching protocols to WebSocket
-          schema:
-            type: string
-        "426":
-          description: Update required
-          schema:
-            type: string
-      summary: Connect to live dashboard WebSocket
-      tags:
-      - Dashboards
 securityDefinitions:
   BearerAuth:
     in: header

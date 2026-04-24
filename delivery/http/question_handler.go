@@ -17,6 +17,7 @@ type QuestionHandler struct {
 // NewQuestionHandler registers protected routes for question management.
 func NewQuestionHandler(app *fiber.App, us domain.QuestionUsecase) {
 	handler := &QuestionHandler{Usecase: us}
+	
 	// Apply authentication and role-based access control (RBAC) middleware to this group.
 	api := app.Group("/api/v1/questions", middleware.AuthProtected(), middleware.RoleProtected("teacher", "admin"))
 	

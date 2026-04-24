@@ -13,7 +13,7 @@ type mysqlQuestionRepository struct {
 	db *gorm.DB
 }
 
-// NewMysqlQuestionRepository creates a new instance.
+// NewMysqlQuestionRepository creates a new instance of QuestionRepository.
 func NewMysqlQuestionRepository(db *gorm.DB) domain.QuestionRepository {
 	return &mysqlQuestionRepository{db}
 }

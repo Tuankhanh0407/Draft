@@ -3,67 +3,68 @@ package domain
 
 // Import necessary libraries.
 import (
+	"context"
 	"gorm.io/gorm"
 	"time"
 )
 
-// Exam represents a test containing multiple compiled questions.
+// Exam represents a test containing multiple questions.
 type Exam struct {
-	ID					uint				`json:"exam_id" gorm:"primaryKey;autoIncrement"`
-	TenantID			uint				`json:"tenant_id" gorm:"not null;index" validate:"required"`
-	Title				string				`json:"title" gorm:"type:varchar(200);not null" validate:"required"`
-	QuestionIDs			[]uint				`json:"question_ids" gorm:"type:json;serializer:json" validate:"required"` // Array of referenced question IDs.
-	StartTime			*time.Time			`json:"start_time" gorm:"type:datetime"` // Nullable: No start limit if null.
-	EndTime				*time.Time			`json:"end_time" gorm:"type:datetime"` // Nullable: No end limit if null.
-	DurationMinutes		int					`json:"duration_minutes" gorm:"type:int;default:0"` // 0 means unlimited duration.
-	MaxAttempts			int					`json:"max_attempts" gorm:"type:int;default:0"` // Limit number of times a user can take this exam (0 = unlimited).
+	ID					uint				`json:"id" gorm:"primaryKey;autoIncrement"`
+	TenantID			uint				`json:"-" gorm:"index;not null"`
+	Title				string				`json:"title" gorm:"size:255;not null"`
+	Duration			int					`json:"duration" gorm:"not null"` // Duration in minutes.
 	CreatedAt			time.Time			`json:"created_at"`
 	UpdatedAt			time.Time			`json:"updated_at"`
-	DeletedAt			gorm.DeletedAt		`json:"-" gorm:"index"` // Soft delete.
+	DeletedAt			gorm.DeletedAt		`json:"-" gorm:"index"`
 }
 
-// ExamDetailResponse represents the formatted payload sent to the frontend when starting an exam.
-type ExamDetailResponse struct {
-	ExamID				uint				`json:"exam_id"`
+// ExamQuestion is the mapping table.
+// UniqueIndex on QuestionID ensures no question reuse.
+type ExamQuestion struct {
+	ExamID				uint				`gorm:"primaryKey"`
+	QuestionID			uint				`gorm:"primaryKey;uniqueIndex:idx_unique_question"`
+}
+
+// ExamRequest represents the payload for creating/updating an exam.
+type ExamRequest struct {
+	Title				string				`json:"title" validate:"required"`
+	Duration			int					`json:"duration" validate:"required,min=1"`
+	QuestionIDs			[]uint				`json:"question_ids" validate:"required,min=10"`
+}
+
+// ExamResponse represents the exam payload returned to clients.
+type ExamResponse struct {
+	ID					uint				`json:"id"`
 	Title				string				`json:"title"`
-	DurationMinutes		int					`json:"duration_minutes"` // Used by frontend to render a countdown timer.
-	Questions			[]Question			`json:"questions"` // Contain AST nodes but NO correct_data and NO explanation.
+	Duration			int					`json:"duration"`
+	Questions			[]QuestionResponse	`json:"questions,omitempty"`
+	CreatedAt			time.Time			`json:"created_at"`
 }
 
-// MissedGapStat holds statistics for a specific incorrectly answered gap.
-type MissedGapStat struct {
-	QuestionID			uint				`json:"question_id"`
-	GapID				string				`json:"gap_id"`
-	MissCount			int					`json:"miss_count"`
-}
-
-// ExamAnalyticsResponse provides an overview of performance metrics for an exam.
-type ExamAnalyticsResponse struct {
+// AnalyticsResponse represents basic statistics for an exam.
+type AnalyticsResponse struct {
 	ExamID				uint				`json:"exam_id"`
 	TotalSubmissions	int64				`json:"total_submissions"`
 	AverageScore		float64				`json:"average_score"`
-	PassRate			float64				`json:"pass_rate"` // Percentage (0 - 100).
-	TopMissedGaps		[]MissedGapStat		`json:"top_missed_gaps"`
 }
 
-// ExamRepository defines database operations for exams.
+// ExamRepository defines data access methods for exams.
 type ExamRepository interface {
-	// Create inserts a new exam record into the database.
-	Create(exam *Exam) error
-	// GetByIDAndTenant retrieves an exam, strictly bound to its tenant.
-	GetByIDAndTenant(id uint, tenantID uint) (*Exam, error)
-	// CheckQuestionsInUse verifies if any question IDs are already part of other exams to prevent duplicates.
-	CheckQuestionsInUse(tenantID uint, questionIDs []uint) (bool, error)
+	Fetch(ctx context.Context, tenantID uint, limit, offset int) ([]Exam, error)
+	GetByID(ctx context.Context, tenantID, id uint) (Exam, []Question, error)
+	Create(ctx context.Context, exam *Exam, questionIDs []uint) error
+	Update(ctx context.Context, exam *Exam, questionIDs []uint) error
+	Delete(ctx context.Context, tenantID, id uint) error
+	GetAnalytics(ctx context.Context, tenantID, id uint) (AnalyticsResponse, error)
 }
 
-// ExamUseCase defines business logic for exams.
-type ExamUseCase interface {
-	// CreateExam validates exam parameters and ensures question uniqueness before creation.
-	CreateExam(exam *Exam) error
-	// GetExamForClient aggregates questions and tracks the start time in Redis for duration calculation.
-	GetExamForClient(id uint, tenantID uint, userID uint) (*ExamDetailResponse, error)
-	// GetExamAnalytics aggregates submission data to highlight common student mistakes.
-	GetExamAnalytics(examID uint, tenantID uint) (*ExamAnalyticsResponse, error)
-	// LogCheatEvent records a proctoring alert during an active exam.
-	LogCheatEvent(req *CheatLogRequest) error
+// ExamUsecase defines business logic for exam management.
+type ExamUsecase interface {
+	GetAll(ctx context.Context, tenantID uint, page, limit int) ([]ExamResponse, error)
+	GetByID(ctx context.Context, tenantID, id uint, role string) (ExamResponse, error)
+	Create(ctx context.Context, tenantID uint, req *ExamRequest) (ExamResponse, error)
+	Update(ctx context.Context, tenantID, id uint, req *ExamRequest) (ExamResponse, error)
+	Delete(ctx context.Context, tenantID, id uint) error
+	GetAnalytics(ctx context.Context, tenantID, id uint) (AnalyticsResponse, error)
 }

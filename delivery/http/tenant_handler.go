@@ -16,6 +16,7 @@ type TenantHandler struct {
 // NewTenantHandler registers routes for tenant management.
 func NewTenantHandler(app *fiber.App, us domain.TenantUsecase) {
 	handler := &TenantHandler{Usecase: us}
+	
 	api := app.Group("/api/v1/tenants")
 
 	api.Get("/", handler.GetAll)

@@ -156,6 +156,345 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/exams": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve a list of exams with pagination support",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Exams"
+                ],
+                "summary": "List exams",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Items per page",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of exams",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.ExamResponse"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Add a new exam to the system under the current tenant",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Exams"
+                ],
+                "summary": "Create an exam",
+                "parameters": [
+                    {
+                        "description": "Exam payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.ExamRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Successfully created exam",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ExamResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request: Invalid payload",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict: Exam data conflicts",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable entity: Validation failed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/exams/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Teachers get correct answers, students get cached sanitized versions",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Exams"
+                ],
+                "summary": "Get exam details",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Exam ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Exam details",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ExamResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Exam not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update an exam's details by its ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Exams"
+                ],
+                "summary": "Update an exam",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Exam ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Exam payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.ExamRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successfully updated exam",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ExamResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request: Invalid payload",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable entity",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Delete an exam by ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Exams"
+                ],
+                "summary": "Delete an exam",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Exam ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No content: Successfully deleted"
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/exams/{id}/analytics": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve analytics data for an exam (in example: average score, completion rate).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Exams"
+                ],
+                "summary": "Get exam analytics",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Exam ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Analytics data",
+                        "schema": {
+                            "$ref": "#/definitions/domain.AnalyticsResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/questions": {
             "get": {
                 "security": [
@@ -739,38 +1078,6 @@ const docTemplate = `{
                     }
                 }
             }
-        },
-        "/ws/v1/exams/{id}/live": {
-            "get": {
-                "description": "Upgrade HTTP connection to WebSocket to receive real-time submission events (WS client required, not testable via Swagger UI directly).",
-                "tags": [
-                    "Dashboards"
-                ],
-                "summary": "Connect to live dashboard WebSocket",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Exam ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "101": {
-                        "description": "Switching protocols to WebSocket",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "426": {
-                        "description": "Update required",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
         }
     },
     "definitions": {
@@ -787,6 +1094,67 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "value": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.AnalyticsResponse": {
+            "type": "object",
+            "properties": {
+                "average_score": {
+                    "type": "number"
+                },
+                "exam_id": {
+                    "type": "integer"
+                },
+                "total_submissions": {
+                    "type": "integer"
+                }
+            }
+        },
+        "domain.ExamRequest": {
+            "type": "object",
+            "required": [
+                "duration",
+                "question_ids",
+                "title"
+            ],
+            "properties": {
+                "duration": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "question_ids": {
+                    "type": "array",
+                    "minItems": 10,
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.ExamResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "duration": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "questions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.QuestionResponse"
+                    }
+                },
+                "title": {
                     "type": "string"
                 }
             }
@@ -869,6 +1237,10 @@ const docTemplate = `{
             "properties": {
                 "content": {
                     "$ref": "#/definitions/domain.QuestionContent"
+                },
+                "correct_data": {
+                    "type": "object",
+                    "additionalProperties": true
                 },
                 "created_at": {
                     "type": "string"
