@@ -14,6 +14,9 @@ type Exam struct {
 	TenantID			uint				`json:"-" gorm:"index;not null"`
 	Title				string				`json:"title" gorm:"size:255;not null"`
 	Duration			int					`json:"duration" gorm:"not null"` // Duration in minutes.
+	MaxAttempts			int					`json:"max_attempts" gorm:"not null;default:1"`
+	ValidFrom			time.Time			`json:"valid_from"`
+	ValidTo				time.Time			`json:"valid_to"`
 	CreatedAt			time.Time			`json:"created_at"`
 	UpdatedAt			time.Time			`json:"updated_at"`
 	DeletedAt			gorm.DeletedAt		`json:"-" gorm:"index"`
@@ -30,6 +33,9 @@ type ExamQuestion struct {
 type ExamRequest struct {
 	Title				string				`json:"title" validate:"required"`
 	Duration			int					`json:"duration" validate:"required,min=1"`
+	MaxAttempts			int					`json:"max_attempts" validate:"required,min=1"`
+	ValidFrom			time.Time			`json:"valid_from" validate:"required"`
+	ValidTo				time.Time			`json:"valid_to" validate:"required"`
 	QuestionIDs			[]uint				`json:"question_ids" validate:"required,min=10"`
 }
 

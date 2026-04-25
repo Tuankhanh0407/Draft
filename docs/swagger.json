@@ -14,7 +14,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Allow a logged-in user to (soft) delete their own account. It requires a valid JWT token.",
+                "description": "Allow a logged-in user to (soft) delete their own account. It requires a valid JWT token",
                 "produces": [
                     "application/json"
                 ],
@@ -255,6 +255,235 @@
                     },
                     "422": {
                         "description": "Unprocessable entity: Validation failed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/exams/sessions/{session_id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve the current state of a specific session.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Sessions"
+                ],
+                "summary": "Get active session status",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Session ID",
+                        "name": "session_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Session details",
+                        "schema": {
+                            "$ref": "#/definitions/domain.SessionResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not found: Session does not exist",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/exams/sessions/{session_id}/submit": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Submit user answers and finalize the session, protected by Redis lock to prevent double-submissions",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Sessions"
+                ],
+                "summary": "Submit answers",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Session ID",
+                        "name": "session_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Answers payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.SubmitRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK: Successfully submitted"
+                    },
+                    "400": {
+                        "description": "Bad request: Invalid payload",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden: Unauthorized to submit this session",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict: Already submitted or being processed",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/exams/{exam_id}/my-attempts": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Fetch a list of sessions/attempts the current user has made for a given exam",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Sessions"
+                ],
+                "summary": "List my attempts for an exam",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Exam ID",
+                        "name": "exam_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of attempts",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.ExamSession"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/exams/{exam_id}/sessions": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a new attempt for a specific exam",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Sessions"
+                ],
+                "summary": "Start exam session",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Exam ID",
+                        "name": "exam_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Session started successfully",
+                        "schema": {
+                            "$ref": "#/definitions/domain.SessionResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden: User cannot start session (in example, max attempts reached)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict: An active session already exists",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1108,11 +1337,18 @@
             "type": "object",
             "required": [
                 "duration",
+                "max_attempts",
                 "question_ids",
-                "title"
+                "title",
+                "valid_from",
+                "valid_to"
             ],
             "properties": {
                 "duration": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "max_attempts": {
                     "type": "integer",
                     "minimum": 1
                 },
@@ -1124,6 +1360,12 @@
                     }
                 },
                 "title": {
+                    "type": "string"
+                },
+                "valid_from": {
+                    "type": "string"
+                },
+                "valid_to": {
                     "type": "string"
                 }
             }
@@ -1148,6 +1390,36 @@
                 },
                 "title": {
                     "type": "string"
+                }
+            }
+        },
+        "domain.ExamSession": {
+            "type": "object",
+            "properties": {
+                "ended_at": {
+                    "description": "Dynamic deadline calculated at start.",
+                    "type": "string"
+                },
+                "exam_id": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "provided_answers": {
+                    "type": "object"
+                },
+                "started_at": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "submitted_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
                 }
             }
         },
@@ -1271,6 +1543,41 @@
                 },
                 "tenant_id": {
                     "type": "integer"
+                }
+            }
+        },
+        "domain.SessionResponse": {
+            "type": "object",
+            "properties": {
+                "ended_at": {
+                    "type": "string"
+                },
+                "exam_id": {
+                    "type": "integer"
+                },
+                "session_id": {
+                    "type": "integer"
+                },
+                "started_at": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "time_left_ms": {
+                    "type": "integer"
+                }
+            }
+        },
+        "domain.SubmitRequest": {
+            "type": "object",
+            "required": [
+                "answers"
+            ],
+            "properties": {
+                "answers": {
+                    "type": "object",
+                    "additionalProperties": true
                 }
             }
         },

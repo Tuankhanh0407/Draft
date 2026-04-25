@@ -30,7 +30,7 @@ func main() {
     dsn := os.Getenv("DB_DSN")
     db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
     if err != nil {
-        log.Fatal("Failed to connect to MySQL")
+        log.Fatal("Failed to connect to MySQL: ", err)
     }
     // 2. Redis connection.
     redisAddr := os.Getenv("REDIS_ADDR")
@@ -38,14 +38,18 @@ func main() {
         Addr: redisAddr,
     })
     // 3. Auto migrate schema.
-    db.AutoMigrate(
+    err = db.AutoMigrate(
         &domain.Tenant{},
         &domain.User{},
         &domain.Question{},
         &domain.Exam{},
         &domain.ExamQuestion{},
         &domain.Submission{},
+        &domain.ExamSession{},
     )
+    if err != nil {
+        log.Fatal("Failed to migrate database schema: ", err)
+    }
     app := fiber.New()
     // 4. Swagger route.
     app.Get("/swagger/*", swagger.HandlerDefault)
@@ -54,18 +58,23 @@ func main() {
     tenantRepo := repository.NewMysqlTenantRepository(db)
     tenantUsecase := usecases.NewTenantUsecase(tenantRepo)
     http.NewTenantHandler(app, tenantUsecase)
-    // 5.2. Auth.
+    // 5.2. Auth/Users.
     userRepo := repository.NewMysqlUserRepository(db)
     userUsecase := usecases.NewUserUsecase(userRepo)
     http.NewUserHandler(app, userUsecase)
-    // 5.3. Questions (protected).
+    // 5.3. Questions (protected & multi-tenant).
     questionRepo := repository.NewMysqlQuestionRepository(db)
     questionUsecase := usecases.NewQuestionUsecase(questionRepo)
     http.NewQuestionHandler(app, questionUsecase)
-    // 5.4. Exams (protected).
+    // 5.4. Exams (protected, multi-tenant & Redis caching).
     examRepo := repository.NewMysqlExamRepository(db)
     examUsecase := usecases.NewExamUsecase(examRepo, rdb)
     http.NewExamHandler(app, examUsecase)
+    // 5.5. Exams sessions & submissions (protected & time management).
+    sessionRepo := repository.NewMysqlSessionRepository(db)
+    sessionUsecase := usecases.NewSessionUsecase(sessionRepo, examRepo, rdb)
+    http.NewSessionHandler(app, sessionUsecase)
     // 6. Start server.
+    log.Println("Assessment core engine backend is running on port 8080...")
     log.Fatal(app.Listen(":8080"))
 }

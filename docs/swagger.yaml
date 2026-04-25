@@ -24,6 +24,9 @@ definitions:
       duration:
         minimum: 1
         type: integer
+      max_attempts:
+        minimum: 1
+        type: integer
       question_ids:
         items:
           type: integer
@@ -31,10 +34,17 @@ definitions:
         type: array
       title:
         type: string
+      valid_from:
+        type: string
+      valid_to:
+        type: string
     required:
     - duration
+    - max_attempts
     - question_ids
     - title
+    - valid_from
+    - valid_to
     type: object
   domain.ExamResponse:
     properties:
@@ -50,6 +60,26 @@ definitions:
         type: array
       title:
         type: string
+    type: object
+  domain.ExamSession:
+    properties:
+      ended_at:
+        description: Dynamic deadline calculated at start.
+        type: string
+      exam_id:
+        type: integer
+      id:
+        type: integer
+      provided_answers:
+        type: object
+      started_at:
+        type: string
+      status:
+        type: string
+      submitted_at:
+        type: string
+      user_id:
+        type: integer
     type: object
   domain.LoginRequest:
     properties:
@@ -134,6 +164,29 @@ definitions:
     - password
     - tenant_id
     type: object
+  domain.SessionResponse:
+    properties:
+      ended_at:
+        type: string
+      exam_id:
+        type: integer
+      session_id:
+        type: integer
+      started_at:
+        type: string
+      status:
+        type: string
+      time_left_ms:
+        type: integer
+    type: object
+  domain.SubmitRequest:
+    properties:
+      answers:
+        additionalProperties: true
+        type: object
+    required:
+    - answers
+    type: object
   domain.Tenant:
     properties:
       code:
@@ -171,7 +224,7 @@ paths:
   /api/v1/account:
     delete:
       description: Allow a logged-in user to (soft) delete their own account. It requires
-        a valid JWT token.
+        a valid JWT token
       produces:
       - application/json
       responses:
@@ -341,6 +394,76 @@ paths:
       summary: Create an exam
       tags:
       - Exams
+  /api/v1/exams/{exam_id}/my-attempts:
+    get:
+      description: Fetch a list of sessions/attempts the current user has made for
+        a given exam
+      parameters:
+      - description: Exam ID
+        in: path
+        name: exam_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of attempts
+          schema:
+            items:
+              $ref: '#/definitions/domain.ExamSession'
+            type: array
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List my attempts for an exam
+      tags:
+      - Sessions
+  /api/v1/exams/{exam_id}/sessions:
+    post:
+      description: Create a new attempt for a specific exam
+      parameters:
+      - description: Exam ID
+        in: path
+        name: exam_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Session started successfully
+          schema:
+            $ref: '#/definitions/domain.SessionResponse'
+        "403":
+          description: 'Forbidden: User cannot start session (in example, max attempts
+            reached)'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: 'Conflict: An active session already exists'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Start exam session
+      tags:
+      - Sessions
   /api/v1/exams/{id}:
     delete:
       description: Delete an exam by ID
@@ -478,6 +601,85 @@ paths:
       summary: Get exam analytics
       tags:
       - Exams
+  /api/v1/exams/sessions/{session_id}:
+    get:
+      description: Retrieve the current state of a specific session.
+      parameters:
+      - description: Session ID
+        in: path
+        name: session_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Session details
+          schema:
+            $ref: '#/definitions/domain.SessionResponse'
+        "404":
+          description: 'Not found: Session does not exist'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get active session status
+      tags:
+      - Sessions
+  /api/v1/exams/sessions/{session_id}/submit:
+    post:
+      consumes:
+      - application/json
+      description: Submit user answers and finalize the session, protected by Redis
+        lock to prevent double-submissions
+      parameters:
+      - description: Session ID
+        in: path
+        name: session_id
+        required: true
+        type: integer
+      - description: Answers payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/domain.SubmitRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'OK: Successfully submitted'
+        "400":
+          description: 'Bad request: Invalid payload'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: 'Forbidden: Unauthorized to submit this session'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: 'Conflict: Already submitted or being processed'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Submit answers
+      tags:
+      - Sessions
   /api/v1/questions:
     get:
       description: Fetch questions belonging to the tenant, exclude correct answers

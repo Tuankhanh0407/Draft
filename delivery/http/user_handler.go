@@ -79,7 +79,7 @@ func (h *UserHandler) Login(c *fiber.Ctx) error {
 
 // DeleteAccount removes the currently authenticated user's account.
 // @Summary Delete current user account.
-// @Description Allow a logged-in user to (soft) delete their own account. It requires a valid JWT token.
+// @Description Allow a logged-in user to (soft) delete their own account. It requires a valid JWT token
 // @Tags Account
 // @Security BearerAuth
 // @Produce json
