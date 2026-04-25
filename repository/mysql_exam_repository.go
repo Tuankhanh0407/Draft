@@ -66,8 +66,8 @@ func (r *mysqlExamRepository) Create(ctx context.Context, exam *domain.Exam, que
 // Update modifies exam metadata and replaces question mappings within a transaction.
 func (r *mysqlExamRepository) Update(ctx context.Context, exam *domain.Exam, questionIDs []uint) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// SQL 1: UPDATE exams SET title = ?, duration = ? WHERE id = ?;
-		if err := tx.Save(exam).Error; err != nil {
+		// SQL 1: UPDATE exams SET title = ?, duration = ?, max_attempts = ?, valid_from = ?, valid_to = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL;
+		if err := tx.Model(exam).Omit("created_at").Updates(exam).Error; err != nil {
 			return err
 		}
 		// SQL 2: DELETE FROM exam_questions WHERE exam_id = ?;
@@ -78,10 +78,8 @@ func (r *mysqlExamRepository) Update(ctx context.Context, exam *domain.Exam, que
 		for _, qID := range questionIDs {
 			mappings = append(mappings, domain.ExamQuestion{ExamID: exam.ID, QuestionID: qID})
 		}
+		// SQL 3: INSERT INTO exam_questions (exam_id, question_id) VALUES (?, ?), (?, ?),...;
 		if err := tx.Create(&mappings).Error; err != nil {
-			if strings.Contains(err.Error(), "Duplicate entry") {
-				return gorm.ErrDuplicatedKey
-			}
 			return err
 		}
 		return nil

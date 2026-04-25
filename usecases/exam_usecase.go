@@ -107,15 +107,18 @@ func (u *examUsecase) GetByID(ctx context.Context, tenantID, id uint, role strin
 	return res, nil
 }
 
-// Create validates business rules and registers a new exam along with its associated questions, handling potential assignment conflicts.
+// Create sets up a new exam and links its specified questions.
 func (u *examUsecase) Create(ctx context.Context, tenantID uint, req *domain.ExamRequest) (domain.ExamResponse, error) {
 	if err := validateExamRules(req); err != nil {
 		return domain.ExamResponse{}, err
 	}
 	exam := domain.Exam{
-		TenantID:	tenantID,
-		Title:		req.Title,
-		Duration:	req.Duration,
+		TenantID:		tenantID,
+		Title:			req.Title,
+		Duration:		req.Duration,
+		MaxAttempts:	req.MaxAttempts,
+		ValidFrom:		req.ValidFrom,
+		ValidTo:		req.ValidTo,
 	}
 	if err := u.repo.Create(ctx, &exam, req.QuestionIDs); err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
@@ -137,6 +140,9 @@ func (u *examUsecase) Update(ctx context.Context, tenantID, id uint, req *domain
 	}
 	exam.Title = req.Title
 	exam.Duration = req.Duration
+	exam.MaxAttempts = req.MaxAttempts
+	exam.ValidFrom = req.ValidFrom
+	exam.ValidTo = req.ValidTo
 	if err := u.repo.Update(ctx, &exam, req.QuestionIDs); err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
 			return domain.ExamResponse{}, errors.New("409: One or more questions are already assigned to another exam")
